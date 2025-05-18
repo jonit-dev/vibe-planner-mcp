@@ -58,6 +58,26 @@ describe('PrdLifecycleService', () => {
       expect(prd).toEqual(mockCreatedPrd);
       expect(prd.id).toBe(expectedPrdId);
     });
+
+    it('should throw an error if DataPersistenceService.createPrd fails', async () => {
+      const prdDetails: InitializePrdDetails = {
+        name: 'Test PRD Fail',
+        description: 'Test Description Fail',
+      };
+      const expectedError = new Error('Create failed');
+      mockDataPersistenceService.createPrd.mockRejectedValue(expectedError);
+
+      await expect(
+        prdLifecycleService.initializePrd(prdDetails)
+      ).rejects.toThrow(expectedError);
+
+      expect(mockDataPersistenceService.createPrd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: prdDetails.name,
+          description: prdDetails.description,
+        })
+      );
+    });
   });
 
   describe('getPrd', () => {
@@ -156,6 +176,19 @@ describe('PrdLifecycleService', () => {
       expect(prd).toEqual(updatedPrdMock);
       expect(prd?.status).toBe(newStatus);
     });
+
+    it('should return null if PRD to update status is not found', async () => {
+      const prdId = 'non-existent-prd-id';
+      const newStatus: PhaseStatus = 'completed';
+      mockDataPersistenceService.updatePrd.mockResolvedValue(null);
+
+      const prd = await prdLifecycleService.updatePrdStatus(prdId, newStatus);
+
+      expect(mockDataPersistenceService.updatePrd).toHaveBeenCalledWith(prdId, {
+        status: newStatus,
+      });
+      expect(prd).toBeNull();
+    });
   });
 
   describe('updatePrdDetails', () => {
@@ -189,6 +222,26 @@ describe('PrdLifecycleService', () => {
       );
       expect(prd).toEqual(updatedPrdMock);
       expect(prd?.name).toBe(detailsToUpdate.name);
+    });
+
+    it('should return null if PRD to update details is not found', async () => {
+      const prdId = 'non-existent-prd-id';
+      const detailsToUpdate = {
+        name: 'Updated Name',
+        description: 'Updated Description',
+      };
+      mockDataPersistenceService.updatePrd.mockResolvedValue(null);
+
+      const prd = await prdLifecycleService.updatePrdDetails(
+        prdId,
+        detailsToUpdate
+      );
+
+      expect(mockDataPersistenceService.updatePrd).toHaveBeenCalledWith(
+        prdId,
+        detailsToUpdate
+      );
+      expect(prd).toBeNull();
     });
   });
 });

@@ -79,6 +79,27 @@ describe('PhaseControlService', () => {
       );
       expect(phase).toEqual(mockCreatedPhase);
     });
+
+    it('should throw an error if DataPersistenceService.createPhase fails', async () => {
+      const phaseDetails: AddPhaseDetails = {
+        name: 'New Phase Fail',
+        order: 1,
+        description: 'New Phase Desc Fail',
+      };
+      const expectedError = new Error('Create phase failed');
+      mockDataPersistenceService.createPhase.mockRejectedValue(expectedError);
+
+      await expect(
+        phaseControlService.addPhaseToPrd(samplePrdId, phaseDetails)
+      ).rejects.toThrow(expectedError);
+
+      expect(mockDataPersistenceService.createPhase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...phaseDetails,
+          prdId: samplePrdId,
+        })
+      );
+    });
   });
 
   describe('getPhaseById', () => {
@@ -119,6 +140,15 @@ describe('PhaseControlService', () => {
       expect(phases).toEqual(mockPhases);
       expect(phases.length).toBe(2);
     });
+
+    it('should return an empty array if no phases found for a PRD', async () => {
+      mockDataPersistenceService.getPhasesByPrdId.mockResolvedValue([]);
+      const phases = await phaseControlService.getPhasesForPrd(samplePrdId);
+      expect(mockDataPersistenceService.getPhasesByPrdId).toHaveBeenCalledWith(
+        samplePrdId
+      );
+      expect(phases).toEqual([]);
+    });
   });
 
   describe('getPhasesWithTasks', () => {
@@ -151,6 +181,33 @@ describe('PhaseControlService', () => {
         expect(phases[0]?.tasks?.[0]?.name).toBe('Task 1');
       }
     });
+
+    it('should return empty array from getPhasesWithTasks if no phases exist', async () => {
+      mockDataPersistenceService.getPhasesByPrdId.mockResolvedValue([]);
+      const phases = await phaseControlService.getPhasesWithTasks(samplePrdId);
+      expect(mockDataPersistenceService.getPhasesByPrdId).toHaveBeenCalledWith(
+        samplePrdId
+      );
+      expect(phases).toEqual([]);
+    });
+
+    it('should return phases with empty tasks array from getPhasesWithTasks if phases exist but have no tasks', async () => {
+      const mockPhaseWithoutTask = createMockPhase({ tasks: [] });
+      mockDataPersistenceService.getPhasesByPrdId.mockResolvedValue([
+        mockPhaseWithoutTask,
+      ]);
+
+      const phases = await phaseControlService.getPhasesWithTasks(samplePrdId);
+
+      expect(mockDataPersistenceService.getPhasesByPrdId).toHaveBeenCalledWith(
+        samplePrdId
+      );
+      expect(phases).toBeDefined();
+      expect(phases.length).toBe(1);
+      if (phases && phases.length > 0) {
+        expect(phases[0]?.tasks?.length).toBe(0);
+      }
+    });
   });
 
   describe('updatePhase', () => {
@@ -174,6 +231,22 @@ describe('PhaseControlService', () => {
       expect(phase).toEqual(mockUpdatedPhase);
       expect(phase?.name).toBe(updates.name);
       expect(phase?.status).toBe(updates.status);
+    });
+
+    it('should return null if phase to update is not found', async () => {
+      const phaseId = 'non-existent-phase-id';
+      const updates: UpdatePhaseDetails = {
+        name: 'Updated Phase Name',
+      };
+      mockDataPersistenceService.updatePhase.mockResolvedValue(null);
+
+      const phase = await phaseControlService.updatePhase(phaseId, updates);
+
+      expect(mockDataPersistenceService.updatePhase).toHaveBeenCalledWith(
+        phaseId,
+        updates
+      );
+      expect(phase).toBeNull();
     });
   });
 
@@ -200,6 +273,23 @@ describe('PhaseControlService', () => {
       );
       expect(phase).toEqual(mockUpdatedPhase);
       expect(phase?.status).toBe(newStatus);
+    });
+
+    it('should return null if phase to update status is not found', async () => {
+      const phaseId = 'non-existent-phase-id';
+      const newStatus: PhaseStatus = 'on_hold';
+      mockDataPersistenceService.updatePhase.mockResolvedValue(null);
+
+      const phase = await phaseControlService.updatePhaseStatus(
+        phaseId,
+        newStatus
+      );
+
+      expect(mockDataPersistenceService.updatePhase).toHaveBeenCalledWith(
+        phaseId,
+        { status: newStatus }
+      );
+      expect(phase).toBeNull();
     });
   });
 });

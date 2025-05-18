@@ -122,6 +122,13 @@ describe('DataPersistenceService', () => {
 
       expect(mockPrdRepository.findById).toHaveBeenCalledWith(prdId);
       expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prdId); // Service calls this internally
+      // When getPhasesByPrdId calls getTasksByPhaseId for each phase, it will pass undefined for statusFilter
+      mockPhases.forEach((phase) => {
+        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+          phase.id,
+          undefined
+        );
+      });
       expect(fetchedPrd).not.toBeNull();
       expect(fetchedPrd?.id).toBe(prdId);
       expect(fetchedPrd?.name).toBe(mockPrd.name);
@@ -207,6 +214,19 @@ describe('DataPersistenceService', () => {
       expect(mockPrdRepository.findAll).toHaveBeenCalled();
       expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prd1Id);
       expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prd2Id);
+      // Check that findByPhaseId on task repo was called for each phase with undefined filter
+      mockPhasesForPrd1.forEach((phase) => {
+        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+          phase.id,
+          undefined
+        );
+      });
+      mockPhasesForPrd2.forEach((phase) => {
+        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+          phase.id,
+          undefined
+        );
+      });
       expect(prds.length).toBe(2);
       // Service sorts by creationDate DESC
       expect(prds[0].name).toBe('PRD 2');
@@ -681,7 +701,8 @@ describe('DataPersistenceService', () => {
       const tasks = await service.getTasksByPhaseId(testPhaseId);
 
       expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        testPhaseId
+        testPhaseId,
+        undefined // Explicitly check for undefined statusFilter
       );
       expect(getTaskDependenciesSpy).toHaveBeenCalledWith(task1Id);
       expect(getTaskDependenciesSpy).toHaveBeenCalledWith(task2Id);
@@ -690,6 +711,52 @@ describe('DataPersistenceService', () => {
       expect(tasks[0].dependencies).toEqual(mockDepsForTask1);
       expect(tasks[1].name).toBe('Task 2');
       expect(tasks[1].dependencies).toEqual(mockDepsForTask2);
+    });
+
+    it('should get Tasks by Phase ID with status filter', async () => {
+      const testPhaseId = crypto.randomUUID();
+      const statusFilter: TaskStatus[] = ['pending', 'in_progress'];
+      const mockFilteredTasksFromRepo: Task[] = [
+        {
+          id: crypto.randomUUID(),
+          phaseId: testPhaseId,
+          name: 'Task A Pending',
+          order: 1,
+          status: 'pending',
+          isValidated: false,
+          creationDate: new Date(),
+          updatedAt: new Date(),
+          completionDate: null,
+          dependencies: undefined,
+        },
+      ];
+
+      mockTaskRepository.findByPhaseId.mockResolvedValue(
+        mockFilteredTasksFromRepo
+      );
+      // Initialize the spy for this test, similar to other tests
+      getTaskDependenciesSpy = vi.spyOn(service as any, 'getTaskDependencies');
+      getTaskDependenciesSpy.mockImplementation(
+        async (taskId: string): Promise<string[]> => {
+          // For this test, we can return an empty array or specific dependencies if needed
+          // This ensures the mock matches the spy's declared signature.
+          return [];
+        }
+      );
+
+      const tasks = await service.getTasksByPhaseId(testPhaseId, statusFilter);
+
+      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+        testPhaseId,
+        statusFilter
+      );
+      if (mockFilteredTasksFromRepo.length > 0) {
+        expect(getTaskDependenciesSpy).toHaveBeenCalledWith(
+          mockFilteredTasksFromRepo[0]!.id
+        );
+      }
+      expect(tasks.length).toBe(mockFilteredTasksFromRepo.length);
+      expect(tasks[0]?.status).toBe('pending');
     });
 
     it('should update a Task successfully and re-populate dependencies', async () => {

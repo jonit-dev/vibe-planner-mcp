@@ -9,6 +9,7 @@ import {
   Prd,
   // PrdSchema, // No longer needed for rowToPrd
   Task,
+  TaskStatus,
 } from '../types';
 
 // Helper functions are no longer needed as repositories handle entity conversion.
@@ -162,14 +163,21 @@ export class DataPersistenceService {
     return task;
   }
 
-  async getTasksByPhaseId(phaseId: string): Promise<Task[]> {
+  async getTasksByPhaseId(
+    phaseId: string,
+    statusFilter?: TaskStatus[]
+  ): Promise<Task[]> {
     // TaskRepository has findByPhaseId, which returns flat tasks.
-    const tasks = await this.taskRepository.findByPhaseId(phaseId);
+    const tasks = await this.taskRepository.findByPhaseId(
+      phaseId,
+      statusFilter
+    );
     // Populate dependencies for each task
     for (const task of tasks) {
       task.dependencies = await this.getTaskDependencies(task.id);
     }
-    return tasks; // findByPhaseId already orders by "order"
+    // findByPhaseId should already order by "order", even with filter
+    return tasks;
   }
 
   // This method remains as it uses the task_dependencies table directly

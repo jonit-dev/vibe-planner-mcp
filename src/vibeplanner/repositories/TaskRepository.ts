@@ -1,5 +1,5 @@
 import { db } from '../../services/db'; // For custom queries
-import { Task, TaskSchema } from '../types';
+import { Task, TaskSchema, TaskStatus } from '../types';
 import { BaseRepository } from './BaseRepository';
 
 export class TaskRepository extends BaseRepository<Task, typeof TaskSchema> {
@@ -22,12 +22,23 @@ export class TaskRepository extends BaseRepository<Task, typeof TaskSchema> {
     return super.rowToEntity(entityData);
   }
 
-  async findByPhaseId(phaseId: string): Promise<Task[]> {
-    const stmt = db.prepare(
-      `SELECT * FROM ${this.tableName} WHERE phaseId = ? ORDER BY "order" ASC`
-    );
-    const rows = stmt.all(phaseId);
-    // Each row will be processed by the overridden rowToEntity via super.rowToEntity in the map
+  async findByPhaseId(
+    phaseId: string,
+    statusFilter?: TaskStatus[]
+  ): Promise<Task[]> {
+    let query = `SELECT * FROM ${this.tableName} WHERE phaseId = ?`;
+    const params: (string | number)[] = [phaseId];
+
+    if (statusFilter && statusFilter.length > 0) {
+      const placeholders = statusFilter.map(() => '?').join(',');
+      query += ` AND status IN (${placeholders})`;
+      params.push(...statusFilter);
+    }
+
+    query += ' ORDER BY "order" ASC';
+
+    const stmt = db.prepare(query);
+    const rows = stmt.all(...params);
     return rows.map((row) => this.rowToEntity(row));
   }
 
