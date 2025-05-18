@@ -1,0 +1,33 @@
+{
+  "name": "mcp-hello-world-server",
+  "version": "1.0.0",
+  "description": "A basic Hello World MCP server.",
+  "main": "dist/server.js",
+  "license": "ISC",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch src --ext ts,json --exec 'yarn build && yarn start'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "server",
+    "typescript"
+  ],
+  "author": "",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.4",
+    "express": "^5.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.18",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.8.3"
+  }
+}

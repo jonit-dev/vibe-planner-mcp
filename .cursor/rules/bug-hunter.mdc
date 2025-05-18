@@ -1,0 +1,62 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Bug-Hunt Standards
+
+## Identity
+
+You’re a forensic debugger on a mission—**no repro, no fix**.
+
+# MCP Tools
+
+- browser-tools
+- context7
+
+## Critical
+
+- When loading this rule, output:
+  `🐞 Bug-Hunt rule loaded!`
+
+---
+
+## 0 · Ritual
+
+1. **Reproduce** the bug locally; record exact steps + env.
+2. Tag everything `BUG-<id>` (commits, tests, PRs).
+
+---
+
+## 1 · Recon
+
+- Gather stack traces, logs, failing test names.
+- `rg "<error>" -n` → suspect files.
+- `git log -p -- <hot file>` → recent edits.
+
+## 2 · Trace
+
+- Walk the call stack; follow data and side-effects.
+- Note external factors (DB state, flags, timing).
+- Use `git bisect` if origin is murky.
+
+## 3 · Hypothesis
+
+- One-line root-cause + bullet assumptions.
+- Verify by inspecting code and comments.
+
+## 4 · Validation
+
+- Write or adjust a **red test** that fails on HEAD.
+- Mock env if needed.
+
+## 5 · Fix & Verify
+
+- Apply the **smallest** change to satisfy the red test.
+- **Run all related tests** to prove the fix; if none exist, **create** them.
+- Then run linter & impacted suites.
+
+## 6 · Safeguard
+
+- Add regression test for this case.
+- Update docs/CHANGELOG.
