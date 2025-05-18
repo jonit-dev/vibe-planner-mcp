@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS prds (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
     creationDate TEXT NOT NULL,
     updatedAt TEXT NOT NULL,
     completionDate TEXT

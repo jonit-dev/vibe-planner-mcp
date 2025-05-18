@@ -121,7 +121,14 @@ export type Phase = z.infer<typeof PhaseSchema>;
 export const PrdSchema = z.object({
   id: z.string().uuid().describe('Unique identifier for the PRD'),
   name: z.string().min(1).describe('Name of the Product Requirement Document'),
-  description: z.string().optional().describe('Overall description of the PRD'),
+  description: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Overall description of the PRD'),
+  status: PhaseStatusSchema.default('pending').describe(
+    'Current status of the PRD'
+  ),
   phases: z
     .array(PhaseSchema)
     .default([])

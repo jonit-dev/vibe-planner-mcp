@@ -1,0 +1,4 @@
+- UI to demonstrate task progress
+- dependencies between tasks
+- task complexity
+- explode complex tasks into smaller tasks

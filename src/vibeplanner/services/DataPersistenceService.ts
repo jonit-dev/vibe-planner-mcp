@@ -51,7 +51,12 @@ export class DataPersistenceService {
   async createPrd(
     data: Omit<
       Prd,
-      'id' | 'creationDate' | 'updatedAt' | 'phases' | 'completionDate'
+      | 'id'
+      | 'creationDate'
+      | 'updatedAt'
+      | 'phases'
+      | 'completionDate'
+      | 'status'
     >
   ): Promise<Prd> {
     const id = crypto.randomUUID();
@@ -61,17 +66,18 @@ export class DataPersistenceService {
       id,
       creationDate: now,
       updatedAt: now,
-      completionDate: null, // Or handle as per input if allowed
-      phases: [], // Phases are managed separately
+      completionDate: null,
+      phases: [],
     });
 
     const stmt = db.prepare(
-      'INSERT INTO prds (id, name, description, creationDate, updatedAt, completionDate) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO prds (id, name, description, status, creationDate, updatedAt, completionDate) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
     stmt.run(
       newPrd.id,
       newPrd.name,
       newPrd.description,
+      newPrd.status,
       newPrd.creationDate.toISOString(),
       newPrd.updatedAt.toISOString(),
       newPrd.completionDate ? newPrd.completionDate.toISOString() : null
@@ -126,6 +132,10 @@ export class DataPersistenceService {
     if (data.description !== undefined) {
       updateData.description = data.description;
       fieldsToUpdate.push('description = ?');
+    }
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+      fieldsToUpdate.push('status = ?');
     }
     if (data.completionDate !== undefined) {
       // handles null to clear date
