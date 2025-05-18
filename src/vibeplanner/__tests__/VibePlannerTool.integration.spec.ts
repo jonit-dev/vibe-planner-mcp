@@ -10,6 +10,7 @@ import { TaskRepository } from '../repositories/TaskRepository';
 import { DataPersistenceService } from '../services/DataPersistenceService';
 import { PhaseControlService } from '../services/PhaseControlService';
 import { PrdLifecycleService } from '../services/PrdLifecycleService';
+import { RepositoryProvider } from '../services/RepositoryProvider';
 import { TaskOrchestrationService } from '../services/TaskOrchestrationService';
 import { Prd } from '../types';
 
@@ -63,14 +64,17 @@ describe('VibePlannerTool Integration Tests', () => {
     resetDatabase();
     container.clearInstances();
 
-    // Register repositories as concrete classes (singletons)
+    // Register concrete repositories first
     container.registerSingleton(PrdRepository);
     container.registerSingleton(PhaseRepository);
     container.registerSingleton(TaskRepository);
 
-    // Register services
-    container.registerSingleton(DataPersistenceService); // Injects repositories with delay()
-    container.registerSingleton(PrdLifecycleService); // Injects DataPersistenceService by class
+    // Register the new RepositoryProvider
+    container.registerSingleton(RepositoryProvider);
+
+    // Register services (DataPersistenceService now depends on RepositoryProvider)
+    container.registerSingleton(DataPersistenceService);
+    container.registerSingleton(PrdLifecycleService);
     container.registerSingleton(PhaseControlService);
     container.registerSingleton(TaskOrchestrationService);
 

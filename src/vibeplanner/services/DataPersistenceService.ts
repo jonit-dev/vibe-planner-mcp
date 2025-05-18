@@ -1,20 +1,16 @@
-import { delay, inject, singleton } from 'tsyringe';
+import { inject, singleton } from 'tsyringe';
 import { db } from '../../services/db';
-// Import concrete repository classes
-import { PhaseRepository } from '../repositories/PhaseRepository';
-import { PrdRepository } from '../repositories/PrdRepository';
-import { TaskRepository } from '../repositories/TaskRepository';
-// Keep CreateDto, UpdateDto if used directly, otherwise remove if only for interfaces
-import { UpdateDto } from '../repositories/BaseRepository';
+import { RepositoryProvider } from './RepositoryProvider'; // Import the new provider
+// Removed direct repository imports
+// CreateDto, UpdateDto might still be needed if DataPersistenceService constructs these for updates.
+// For now, assuming they are passed through or not strictly needed for this snippet's focus.
+// import { CreateDto, UpdateDto } from '../repositories/BaseRepository';
 import { Phase, Prd, Task, TaskStatus } from '../types';
 
 @singleton()
 export class DataPersistenceService {
   constructor(
-    @inject(delay(() => PrdRepository)) private prdRepository: PrdRepository,
-    @inject(delay(() => PhaseRepository))
-    private phaseRepository: PhaseRepository,
-    @inject(delay(() => TaskRepository)) private taskRepository: TaskRepository
+    @inject(RepositoryProvider) private repositories: RepositoryProvider
   ) {}
 
   // PRD Methods
@@ -24,23 +20,19 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'phases' | 'completionDate'
     >
   ): Promise<Prd> {
-    return this.prdRepository.create(data);
+    return this.repositories.prdRepository.create(data);
   }
 
   async getPrdById(id: string): Promise<Prd | null> {
-    // This service method now directly returns what the repository returns.
-    // If population of prd.phases was intended here, it needs to be explicit.
-    // For KISS, let's assume for now the repository provides what's needed or subsequent calls build up the object.
-    const prd = await this.prdRepository.findById(id);
+    const prd = await this.repositories.prdRepository.findById(id);
     if (prd) {
-      // Original logic for populating phases was here, let's keep it for consistency for now
       prd.phases = await this.getPhasesByPrdId(prd.id);
     }
     return prd;
   }
 
   async getAllPrds(): Promise<Prd[]> {
-    const prds = await this.prdRepository.findAll();
+    const prds = await this.repositories.prdRepository.findAll();
     for (const prd of prds) {
       prd.phases = await this.getPhasesByPrdId(prd.id);
     }
@@ -53,10 +45,10 @@ export class DataPersistenceService {
     id: string,
     data: Partial<Omit<Prd, 'id' | 'creationDate' | 'updatedAt' | 'phases'>>
   ): Promise<Prd | null> {
-    const updatedPrd = await this.prdRepository.update(
+    const updatedPrd = await this.repositories.prdRepository.update(
       id,
-      data as UpdateDto<Prd>
-    );
+      data as any
+    ); // Cast as any for now, or import UpdateDto
     if (updatedPrd) {
       updatedPrd.phases = await this.getPhasesByPrdId(id);
     }
@@ -64,7 +56,7 @@ export class DataPersistenceService {
   }
 
   async deletePrd(id: string): Promise<boolean> {
-    return this.prdRepository.delete(id);
+    return this.repositories.prdRepository.delete(id);
   }
 
   // Phase Methods
@@ -74,11 +66,11 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'tasks' | 'completionDate'
     >
   ): Promise<Phase> {
-    return this.phaseRepository.create(data);
+    return this.repositories.phaseRepository.create(data);
   }
 
   async getPhaseById(id: string): Promise<Phase | null> {
-    const phase = await this.phaseRepository.findById(id);
+    const phase = await this.repositories.phaseRepository.findById(id);
     if (phase) {
       phase.tasks = await this.getTasksByPhaseId(id);
     }
@@ -86,7 +78,7 @@ export class DataPersistenceService {
   }
 
   async getPhasesByPrdId(prdId: string): Promise<Phase[]> {
-    const phases = await this.phaseRepository.findByPrdId(prdId);
+    const phases = await this.repositories.phaseRepository.findByPrdId(prdId);
     for (const phase of phases) {
       phase.tasks = await this.getTasksByPhaseId(phase.id);
     }
@@ -99,10 +91,10 @@ export class DataPersistenceService {
       Omit<Phase, 'id' | 'creationDate' | 'updatedAt' | 'tasks' | 'prdId'>
     >
   ): Promise<Phase | null> {
-    const updatedPhase = await this.phaseRepository.update(
+    const updatedPhase = await this.repositories.phaseRepository.update(
       id,
-      data as UpdateDto<Phase>
-    );
+      data as any
+    ); // Cast as any or import UpdateDto
     if (updatedPhase) {
       updatedPhase.tasks = await this.getTasksByPhaseId(id);
     }
@@ -110,7 +102,7 @@ export class DataPersistenceService {
   }
 
   async deletePhase(id: string): Promise<boolean> {
-    return this.phaseRepository.delete(id);
+    return this.repositories.phaseRepository.delete(id);
   }
 
   // Task Methods
@@ -120,7 +112,7 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'completionDate' | 'dependencies'
     >
   ): Promise<Task> {
-    return this.taskRepository.create(data);
+    return this.repositories.taskRepository.create(data);
   }
 
   private async getTaskDependencies(taskId: string): Promise<string[]> {
@@ -132,7 +124,7 @@ export class DataPersistenceService {
   }
 
   async getTaskById(id: string): Promise<Task | null> {
-    const task = await this.taskRepository.findById(id);
+    const task = await this.repositories.taskRepository.findById(id);
     if (task) {
       task.dependencies = await this.getTaskDependencies(id);
     }
@@ -143,7 +135,7 @@ export class DataPersistenceService {
     phaseId: string,
     statusFilter?: TaskStatus[]
   ): Promise<Task[]> {
-    const tasks = await this.taskRepository.findByPhaseId(
+    const tasks = await this.repositories.taskRepository.findByPhaseId(
       phaseId,
       statusFilter
     );
@@ -177,10 +169,10 @@ export class DataPersistenceService {
       >
     >
   ): Promise<Task | null> {
-    const updatedTask = await this.taskRepository.update(
+    const updatedTask = await this.repositories.taskRepository.update(
       id,
-      data as UpdateDto<Task>
-    );
+      data as any
+    ); // Cast as any or import UpdateDto
     if (updatedTask) {
       updatedTask.dependencies = await this.getTaskDependencies(id);
     }
@@ -191,7 +183,7 @@ export class DataPersistenceService {
     db.prepare(
       'DELETE FROM task_dependencies WHERE taskId = ? OR dependencyId = ?'
     ).run(id, id);
-    return this.taskRepository.delete(id);
+    return this.repositories.taskRepository.delete(id);
   }
 }
 

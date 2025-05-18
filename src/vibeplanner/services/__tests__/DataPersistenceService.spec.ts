@@ -6,6 +6,7 @@ import { PrdRepository } from '../../repositories/PrdRepository';
 import { TaskRepository } from '../../repositories/TaskRepository';
 import { Phase, PhaseStatus, Prd, Task, TaskStatus } from '../../types';
 import { DataPersistenceService } from '../DataPersistenceService';
+import { RepositoryProvider } from '../RepositoryProvider'; // Import RepositoryProvider
 
 // Hoist the mock functions
 const { mockDbRun, mockDbPrepare, mockDbTransaction } = vi.hoisted(() => {
@@ -34,11 +35,15 @@ vi.mock('../../repositories/PrdRepository');
 vi.mock('../../repositories/PhaseRepository');
 vi.mock('../../repositories/TaskRepository');
 
+// Mock RepositoryProvider
+vi.mock('../RepositoryProvider');
+
 describe('DataPersistenceService', () => {
   let service: DataPersistenceService;
   let mockPrdRepository: MockProxy<PrdRepository>;
   let mockPhaseRepository: MockProxy<PhaseRepository>;
   let mockTaskRepository: MockProxy<TaskRepository>;
+  let mockRepositoryProvider: MockProxy<RepositoryProvider>;
   let getTaskDependenciesSpy: MockInstance<[taskId: string], Promise<string[]>>;
 
   beforeEach(() => {
@@ -47,11 +52,19 @@ describe('DataPersistenceService', () => {
     mockPhaseRepository = mockDeep<PhaseRepository>();
     mockTaskRepository = mockDeep<TaskRepository>();
 
-    service = new DataPersistenceService(
-      mockPrdRepository,
-      mockPhaseRepository,
-      mockTaskRepository
-    );
+    // Create a deep mock for RepositoryProvider
+    mockRepositoryProvider = mockDeep<RepositoryProvider>();
+
+    // Assign the repository mocks to the properties of the mocked RepositoryProvider
+    // This uses a type assertion because mockDeep doesn't preserve readonly properties well by default.
+    (mockRepositoryProvider.prdRepository as MockProxy<PrdRepository>) =
+      mockPrdRepository;
+    (mockRepositoryProvider.phaseRepository as MockProxy<PhaseRepository>) =
+      mockPhaseRepository;
+    (mockRepositoryProvider.taskRepository as MockProxy<TaskRepository>) =
+      mockTaskRepository;
+
+    service = new DataPersistenceService(mockRepositoryProvider);
   });
 
   // afterAll can be removed if closeDbConnection was its only purpose
@@ -75,11 +88,15 @@ describe('DataPersistenceService', () => {
         phases: [], // create in repo doesn't add phases
       };
 
-      mockPrdRepository.create.mockResolvedValue(expectedPrd);
+      mockRepositoryProvider.prdRepository.create.mockResolvedValue(
+        expectedPrd
+      );
 
       const prd = await service.createPrd(prdData);
 
-      expect(mockPrdRepository.create).toHaveBeenCalledWith(prdData);
+      expect(mockRepositoryProvider.prdRepository.create).toHaveBeenCalledWith(
+        prdData
+      );
       expect(prd).toEqual(expectedPrd);
     });
 
@@ -109,25 +126,28 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockPrdRepository.findById.mockResolvedValue(mockPrd);
+      mockRepositoryProvider.prdRepository.findById.mockResolvedValue(mockPrd);
       // Mock getPhasesByPrdId (which internally calls phaseRepository.findByPrdId and then getTasksByPhaseId)
       // For simplicity now, let's assume getPhasesByPrdId will be called and mock its direct dependencies if needed
       // OR we can mock what phaseRepository.findByPrdId itself returns, and then taskRepository.findByPhaseId for its tasks
-      mockPhaseRepository.findByPrdId.mockResolvedValue(
+      mockRepositoryProvider.phaseRepository.findByPrdId.mockResolvedValue(
         mockPhases.map((p) => ({ ...p, tasks: undefined }))
       ); // flat phases from repo
-      mockTaskRepository.findByPhaseId.mockResolvedValue([]); // assume no tasks for this phase for simplicity here
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue([]); // assume no tasks for this phase for simplicity here
 
       const fetchedPrd = await service.getPrdById(prdId);
 
-      expect(mockPrdRepository.findById).toHaveBeenCalledWith(prdId);
-      expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prdId); // Service calls this internally
+      expect(
+        mockRepositoryProvider.prdRepository.findById
+      ).toHaveBeenCalledWith(prdId);
+      expect(
+        mockRepositoryProvider.phaseRepository.findByPrdId
+      ).toHaveBeenCalledWith(prdId); // Service calls this internally
       // When getPhasesByPrdId calls getTasksByPhaseId for each phase, it will pass undefined for statusFilter
       mockPhases.forEach((phase) => {
-        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-          phase.id,
-          undefined
-        );
+        expect(
+          mockRepositoryProvider.taskRepository.findByPhaseId
+        ).toHaveBeenCalledWith(phase.id, undefined);
       });
       expect(fetchedPrd).not.toBeNull();
       expect(fetchedPrd?.id).toBe(prdId);
@@ -137,11 +157,13 @@ describe('DataPersistenceService', () => {
 
     it('should return null for non-existent PRD ID when getting by ID', async () => {
       const nonExistentId = 'non-existent-id';
-      mockPrdRepository.findById.mockResolvedValue(null);
+      mockRepositoryProvider.prdRepository.findById.mockResolvedValue(null);
 
       const fetchedPrd = await service.getPrdById(nonExistentId);
 
-      expect(mockPrdRepository.findById).toHaveBeenCalledWith(nonExistentId);
+      expect(
+        mockRepositoryProvider.prdRepository.findById
+      ).toHaveBeenCalledWith(nonExistentId);
       expect(fetchedPrd).toBeNull();
     });
 
@@ -195,37 +217,41 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockPrdRepository.findAll.mockResolvedValue(mockPrdsFromRepo);
+      mockRepositoryProvider.prdRepository.findAll.mockResolvedValue(
+        mockPrdsFromRepo
+      );
       // Mock calls to getPhasesByPrdId (which means mocking phaseRepo.findByPrdId and taskRepo.findByPhaseId for each prd)
-      mockPhaseRepository.findByPrdId
+      mockRepositoryProvider.phaseRepository.findByPrdId
         .calledWith(prd1Id)
         .mockResolvedValue(
           mockPhasesForPrd1.map((p) => ({ ...p, tasks: undefined }))
         );
-      mockPhaseRepository.findByPrdId
+      mockRepositoryProvider.phaseRepository.findByPrdId
         .calledWith(prd2Id)
         .mockResolvedValue(
           mockPhasesForPrd2.map((p) => ({ ...p, tasks: undefined }))
         );
-      mockTaskRepository.findByPhaseId.mockResolvedValue([]); // For all task lookups in this test
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue([]); // For all task lookups in this test
 
       const prds = await service.getAllPrds();
 
-      expect(mockPrdRepository.findAll).toHaveBeenCalled();
-      expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prd1Id);
-      expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prd2Id);
+      expect(mockRepositoryProvider.prdRepository.findAll).toHaveBeenCalled();
+      expect(
+        mockRepositoryProvider.phaseRepository.findByPrdId
+      ).toHaveBeenCalledWith(prd1Id);
+      expect(
+        mockRepositoryProvider.phaseRepository.findByPrdId
+      ).toHaveBeenCalledWith(prd2Id);
       // Check that findByPhaseId on task repo was called for each phase with undefined filter
       mockPhasesForPrd1.forEach((phase) => {
-        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-          phase.id,
-          undefined
-        );
+        expect(
+          mockRepositoryProvider.taskRepository.findByPhaseId
+        ).toHaveBeenCalledWith(phase.id, undefined);
       });
       mockPhasesForPrd2.forEach((phase) => {
-        expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-          phase.id,
-          undefined
-        );
+        expect(
+          mockRepositoryProvider.taskRepository.findByPhaseId
+        ).toHaveBeenCalledWith(phase.id, undefined);
       });
       expect(prds.length).toBe(2);
       // Service sorts by creationDate DESC
@@ -262,16 +288,23 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockPrdRepository.update.mockResolvedValue(updatedPrdFromRepo);
-      mockPhaseRepository.findByPrdId
+      mockRepositoryProvider.prdRepository.update.mockResolvedValue(
+        updatedPrdFromRepo
+      );
+      mockRepositoryProvider.phaseRepository.findByPrdId
         .calledWith(prdId)
         .mockResolvedValue(mockPhases.map((p) => ({ ...p, tasks: undefined })));
-      mockTaskRepository.findByPhaseId.mockResolvedValue([]);
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue([]);
 
       const updatedPrd = await service.updatePrd(prdId, updates);
 
-      expect(mockPrdRepository.update).toHaveBeenCalledWith(prdId, updates);
-      expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(prdId);
+      expect(mockRepositoryProvider.prdRepository.update).toHaveBeenCalledWith(
+        prdId,
+        updates
+      );
+      expect(
+        mockRepositoryProvider.phaseRepository.findByPrdId
+      ).toHaveBeenCalledWith(prdId);
       expect(updatedPrd).not.toBeNull();
       expect(updatedPrd?.name).toBe(updates.name);
       expect(updatedPrd?.phases).toEqual(mockPhases);
@@ -280,11 +313,11 @@ describe('DataPersistenceService', () => {
     it('should return null when updating a non-existent PRD', async () => {
       const nonExistentId = 'non-existent-prd';
       const updates = { name: 'New Name' };
-      mockPrdRepository.update.mockResolvedValue(null);
+      mockRepositoryProvider.prdRepository.update.mockResolvedValue(null);
 
       const result = await service.updatePrd(nonExistentId, updates);
 
-      expect(mockPrdRepository.update).toHaveBeenCalledWith(
+      expect(mockRepositoryProvider.prdRepository.update).toHaveBeenCalledWith(
         nonExistentId,
         updates
       );
@@ -293,20 +326,24 @@ describe('DataPersistenceService', () => {
 
     it('should delete a PRD successfully', async () => {
       const prdId = crypto.randomUUID();
-      mockPrdRepository.delete.mockResolvedValue(true);
+      mockRepositoryProvider.prdRepository.delete.mockResolvedValue(true);
 
       const result = await service.deletePrd(prdId);
 
-      expect(mockPrdRepository.delete).toHaveBeenCalledWith(prdId);
+      expect(mockRepositoryProvider.prdRepository.delete).toHaveBeenCalledWith(
+        prdId
+      );
       expect(result).toBe(true);
     });
 
     it('should return false when deleting a non-existent PRD', async () => {
       const nonExistentId = 'non-existent-prd';
-      mockPrdRepository.delete.mockResolvedValue(false);
+      mockRepositoryProvider.prdRepository.delete.mockResolvedValue(false);
 
       const result = await service.deletePrd(nonExistentId);
-      expect(mockPrdRepository.delete).toHaveBeenCalledWith(nonExistentId);
+      expect(mockRepositoryProvider.prdRepository.delete).toHaveBeenCalledWith(
+        nonExistentId
+      );
       expect(result).toBe(false);
     });
   });
@@ -336,9 +373,13 @@ describe('DataPersistenceService', () => {
         completionDate: null,
         tasks: [],
       };
-      mockPhaseRepository.create.mockResolvedValue(expectedPhase);
+      mockRepositoryProvider.phaseRepository.create.mockResolvedValue(
+        expectedPhase
+      );
       const phase = await service.createPhase(phaseData);
-      expect(mockPhaseRepository.create).toHaveBeenCalledWith(phaseData);
+      expect(
+        mockRepositoryProvider.phaseRepository.create
+      ).toHaveBeenCalledWith(phaseData);
       expect(phase).toEqual(expectedPhase);
     });
 
@@ -370,8 +411,10 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockPhaseRepository.findById.mockResolvedValue(mockPhaseFromRepo);
-      mockTaskRepository.findByPhaseId.mockResolvedValue(
+      mockRepositoryProvider.phaseRepository.findById.mockResolvedValue(
+        mockPhaseFromRepo
+      );
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue(
         mockTasks.map((t) => ({ ...t, dependencies: undefined }))
       );
 
@@ -383,11 +426,12 @@ describe('DataPersistenceService', () => {
 
       const fetchedPhase = await service.getPhaseById(phaseId);
 
-      expect(mockPhaseRepository.findById).toHaveBeenCalledWith(phaseId);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        phaseId,
-        undefined
-      );
+      expect(
+        mockRepositoryProvider.phaseRepository.findById
+      ).toHaveBeenCalledWith(phaseId);
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(phaseId, undefined);
       if (mockTasks.length > 0) {
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(mockTasks[0].id);
       }
@@ -401,9 +445,11 @@ describe('DataPersistenceService', () => {
 
     it('should return null when getting a non-existent Phase by ID', async () => {
       const nonExistentId = 'non-existent-phase';
-      mockPhaseRepository.findById.mockResolvedValue(null);
+      mockRepositoryProvider.phaseRepository.findById.mockResolvedValue(null);
       const phase = await service.getPhaseById(nonExistentId);
-      expect(mockPhaseRepository.findById).toHaveBeenCalledWith(nonExistentId);
+      expect(
+        mockRepositoryProvider.phaseRepository.findById
+      ).toHaveBeenCalledWith(nonExistentId);
       expect(phase).toBeNull();
     });
 
@@ -450,13 +496,15 @@ describe('DataPersistenceService', () => {
       ];
       const mockTasksForPhase2: Task[] = [];
 
-      mockPhaseRepository.findByPrdId.mockResolvedValue(mockPhasesFromRepo);
-      mockTaskRepository.findByPhaseId
+      mockRepositoryProvider.phaseRepository.findByPrdId.mockResolvedValue(
+        mockPhasesFromRepo
+      );
+      mockRepositoryProvider.taskRepository.findByPhaseId
         .calledWith(phase1Id)
         .mockResolvedValue(
           mockTasksForPhase1.map((t) => ({ ...t, dependencies: undefined }))
         );
-      mockTaskRepository.findByPhaseId
+      mockRepositoryProvider.taskRepository.findByPhaseId
         .calledWith(phase2Id)
         .mockResolvedValue(mockTasksForPhase2);
 
@@ -470,15 +518,15 @@ describe('DataPersistenceService', () => {
 
       const phases = await service.getPhasesByPrdId(testPrdId);
 
-      expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(testPrdId);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        phase1Id,
-        undefined
-      );
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        phase2Id,
-        undefined
-      );
+      expect(
+        mockRepositoryProvider.phaseRepository.findByPrdId
+      ).toHaveBeenCalledWith(testPrdId);
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(phase1Id, undefined);
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(phase2Id, undefined);
       if (mockTasksForPhase1.length > 0 && mockTasksForPhase1[0]) {
         // Ensure task exists before checking spy
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(
@@ -530,8 +578,10 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockPhaseRepository.update.mockResolvedValue(updatedPhaseFromRepo);
-      mockTaskRepository.findByPhaseId
+      mockRepositoryProvider.phaseRepository.update.mockResolvedValue(
+        updatedPhaseFromRepo
+      );
+      mockRepositoryProvider.taskRepository.findByPhaseId
         .calledWith(phaseId)
         .mockResolvedValue(
           mockTasks.map((t) => ({ ...t, dependencies: undefined }))
@@ -545,11 +595,12 @@ describe('DataPersistenceService', () => {
 
       const updatedPhase = await service.updatePhase(phaseId, updates);
 
-      expect(mockPhaseRepository.update).toHaveBeenCalledWith(phaseId, updates);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        phaseId,
-        undefined
-      );
+      expect(
+        mockRepositoryProvider.phaseRepository.update
+      ).toHaveBeenCalledWith(phaseId, updates);
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(phaseId, undefined);
       if (mockTasks.length > 0) {
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(mockTasks[0].id);
       }
@@ -564,28 +615,31 @@ describe('DataPersistenceService', () => {
     it('should return null when updating a non-existent phase', async () => {
       const nonExistentId = 'non-existent-phase';
       const updates = { name: 'New Phase Name' };
-      mockPhaseRepository.update.mockResolvedValue(null);
+      mockRepositoryProvider.phaseRepository.update.mockResolvedValue(null);
       const result = await service.updatePhase(nonExistentId, updates);
-      expect(mockPhaseRepository.update).toHaveBeenCalledWith(
-        nonExistentId,
-        updates
-      );
+      expect(
+        mockRepositoryProvider.phaseRepository.update
+      ).toHaveBeenCalledWith(nonExistentId, updates);
       expect(result).toBeNull();
     });
 
     it('should delete a Phase successfully', async () => {
       const phaseId = crypto.randomUUID();
-      mockPhaseRepository.delete.mockResolvedValue(true);
+      mockRepositoryProvider.phaseRepository.delete.mockResolvedValue(true);
       const result = await service.deletePhase(phaseId);
-      expect(mockPhaseRepository.delete).toHaveBeenCalledWith(phaseId);
+      expect(
+        mockRepositoryProvider.phaseRepository.delete
+      ).toHaveBeenCalledWith(phaseId);
       expect(result).toBe(true);
     });
 
     it('should return false when deleting a non-existent phase', async () => {
       const nonExistentId = 'non-existent-phase';
-      mockPhaseRepository.delete.mockResolvedValue(false);
+      mockRepositoryProvider.phaseRepository.delete.mockResolvedValue(false);
       const result = await service.deletePhase(nonExistentId);
-      expect(mockPhaseRepository.delete).toHaveBeenCalledWith(nonExistentId);
+      expect(
+        mockRepositoryProvider.phaseRepository.delete
+      ).toHaveBeenCalledWith(nonExistentId);
       expect(result).toBe(false);
     });
   });
@@ -621,10 +675,14 @@ describe('DataPersistenceService', () => {
         dependencies: [], // Repo create returns flat entity
       };
 
-      mockTaskRepository.create.mockResolvedValue(returnedTaskFromRepo);
+      mockRepositoryProvider.taskRepository.create.mockResolvedValue(
+        returnedTaskFromRepo
+      );
       const serviceTask = await service.createTask(taskData);
 
-      expect(mockTaskRepository.create).toHaveBeenCalledWith(taskData); // service passes data almost directly
+      expect(mockRepositoryProvider.taskRepository.create).toHaveBeenCalledWith(
+        taskData
+      ); // service passes data almost directly
       expect(serviceTask).toEqual(returnedTaskFromRepo); // service returns what repo returns
     });
 
@@ -644,7 +702,9 @@ describe('DataPersistenceService', () => {
       };
       const mockDependencyIds = [crypto.randomUUID()];
 
-      mockTaskRepository.findById.mockResolvedValue(mockTaskFromRepo);
+      mockRepositoryProvider.taskRepository.findById.mockResolvedValue(
+        mockTaskFromRepo
+      );
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
@@ -653,7 +713,9 @@ describe('DataPersistenceService', () => {
 
       const fetchedTask = await service.getTaskById(taskId);
 
-      expect(mockTaskRepository.findById).toHaveBeenCalledWith(taskId);
+      expect(
+        mockRepositoryProvider.taskRepository.findById
+      ).toHaveBeenCalledWith(taskId);
       expect(getTaskDependenciesSpy).toHaveBeenCalledWith(taskId);
       expect(fetchedTask).not.toBeNull();
       expect(fetchedTask?.id).toBe(taskId);
@@ -662,9 +724,11 @@ describe('DataPersistenceService', () => {
 
     it('should return null when getting a non-existent Task by ID', async () => {
       const nonExistentId = 'non-existent-task';
-      mockTaskRepository.findById.mockResolvedValue(null);
+      mockRepositoryProvider.taskRepository.findById.mockResolvedValue(null);
       const task = await service.getTaskById(nonExistentId);
-      expect(mockTaskRepository.findById).toHaveBeenCalledWith(nonExistentId);
+      expect(
+        mockRepositoryProvider.taskRepository.findById
+      ).toHaveBeenCalledWith(nonExistentId);
       expect(task).toBeNull();
     });
 
@@ -699,7 +763,9 @@ describe('DataPersistenceService', () => {
       const mockDepsForTask1 = [crypto.randomUUID()];
       const mockDepsForTask2: string[] = [];
 
-      mockTaskRepository.findByPhaseId.mockResolvedValue(mockTasksFromRepo);
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue(
+        mockTasksFromRepo
+      );
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
@@ -712,7 +778,9 @@ describe('DataPersistenceService', () => {
 
       const tasks = await service.getTasksByPhaseId(testPhaseId);
 
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(
         testPhaseId,
         undefined // Explicitly check for undefined statusFilter
       );
@@ -743,7 +811,7 @@ describe('DataPersistenceService', () => {
         },
       ];
 
-      mockTaskRepository.findByPhaseId.mockResolvedValue(
+      mockRepositoryProvider.taskRepository.findByPhaseId.mockResolvedValue(
         mockFilteredTasksFromRepo
       );
       // Initialize the spy for this test, similar to other tests
@@ -761,10 +829,9 @@ describe('DataPersistenceService', () => {
 
       const tasks = await service.getTasksByPhaseId(testPhaseId, statusFilter);
 
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
-        testPhaseId,
-        statusFilter
-      );
+      expect(
+        mockRepositoryProvider.taskRepository.findByPhaseId
+      ).toHaveBeenCalledWith(testPhaseId, statusFilter);
       if (mockFilteredTasksFromRepo.length > 0) {
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(
           mockFilteredTasksFromRepo[0]!.id
