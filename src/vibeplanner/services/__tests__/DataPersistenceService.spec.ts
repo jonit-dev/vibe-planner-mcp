@@ -378,13 +378,16 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockResolvedValue([]);
 
       const fetchedPhase = await service.getPhaseById(phaseId);
 
       expect(mockPhaseRepository.findById).toHaveBeenCalledWith(phaseId);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(phaseId);
+      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+        phaseId,
+        undefined
+      );
       if (mockTasks.length > 0) {
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(mockTasks[0].id);
       }
@@ -460,7 +463,7 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       // The complex mockImplementation was causing an error and is overridden by mockResolvedValue anyway.
       // For this test, we just need getTaskDependencies to return an empty array for any task it's called with.
       getTaskDependenciesSpy.mockResolvedValue([]);
@@ -468,8 +471,14 @@ describe('DataPersistenceService', () => {
       const phases = await service.getPhasesByPrdId(testPrdId);
 
       expect(mockPhaseRepository.findByPrdId).toHaveBeenCalledWith(testPrdId);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(phase1Id);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(phase2Id);
+      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+        phase1Id,
+        undefined
+      );
+      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+        phase2Id,
+        undefined
+      );
       if (mockTasksForPhase1.length > 0 && mockTasksForPhase1[0]) {
         // Ensure task exists before checking spy
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(
@@ -531,13 +540,16 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockResolvedValue([]);
 
       const updatedPhase = await service.updatePhase(phaseId, updates);
 
       expect(mockPhaseRepository.update).toHaveBeenCalledWith(phaseId, updates);
-      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(phaseId);
+      expect(mockTaskRepository.findByPhaseId).toHaveBeenCalledWith(
+        phaseId,
+        undefined
+      );
       if (mockTasks.length > 0) {
         expect(getTaskDependenciesSpy).toHaveBeenCalledWith(mockTasks[0].id);
       }
@@ -636,7 +648,7 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockResolvedValue(mockDependencyIds);
 
       const fetchedTask = await service.getTaskById(taskId);
@@ -691,7 +703,7 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockImplementation(async (id: string) => {
         if (id === task1Id) return mockDepsForTask1;
         if (id === task2Id) return mockDepsForTask2;
@@ -735,7 +747,10 @@ describe('DataPersistenceService', () => {
         mockFilteredTasksFromRepo
       );
       // Initialize the spy for this test, similar to other tests
-      getTaskDependenciesSpy = vi.spyOn(service as any, 'getTaskDependencies');
+      getTaskDependenciesSpy = vi.spyOn(
+        service as any,
+        'getTaskDependencies'
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockImplementation(
         async (taskId: string): Promise<string[]> => {
           // For this test, we can return an empty array or specific dependencies if needed
@@ -783,7 +798,7 @@ describe('DataPersistenceService', () => {
       getTaskDependenciesSpy = vi.spyOn(
         service as any,
         'getTaskDependencies'
-      ) as unknown as MockInstance<[string], Promise<string[]>>;
+      ) as MockInstance<[string], Promise<string[]>>;
       getTaskDependenciesSpy.mockResolvedValue(mockDependencyIds);
 
       const updatedTask = await service.updateTask(taskId, updates);
