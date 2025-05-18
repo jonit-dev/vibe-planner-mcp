@@ -1,7 +1,5 @@
-import { PhaseRepository } from './repositories/PhaseRepository';
-import { PrdRepository } from './repositories/PrdRepository';
-import { TaskRepository } from './repositories/TaskRepository';
-import { DataPersistenceService } from './services/DataPersistenceService';
+import 'reflect-metadata';
+import { inject, injectable } from 'tsyringe';
 import { PhaseControlService } from './services/PhaseControlService';
 import { PrdLifecycleService } from './services/PrdLifecycleService';
 import {
@@ -12,97 +10,62 @@ import { Phase, Prd, Task, TaskStatus } from './types';
 
 // Placeholder for McpTool and McpToolContext from the SDK
 // These would typically be imported from '@modelcontextprotocol/sdk'
-interface McpToolContext {
-  // Define properties of McpToolContext if known, e.g., logger, user info
-  [key: string]: any;
-}
+// interface McpToolContext {
+//   // Define properties of McpToolContext if known, e.g., logger, user info
+//   [key: string]: any;
+// }
 
-interface McpTool {
-  toolName: string;
-  toolDescription: string;
-  toolVersion: string;
-  // Define other methods if specified by the McpTool interface
-  startNewPlan(
-    context: McpToolContext,
-    prdDetails: { name: string; description: string; sourceTool?: string }
-  ): Promise<{ planId: string; firstTask?: Task }>;
-  getPlanStatus(
-    context: McpToolContext,
-    planId: string
-  ): Promise<PlanOverview | null>;
-  getNextTask(context: McpToolContext, planId: string): Promise<Task | null>;
-  updateTaskStatus(
-    context: McpToolContext,
-    taskId: string,
-    status: TaskStatus,
-    details?: { validationOutput?: string; notes?: string; exitCode?: number }
-  ): Promise<void>;
-  requestTaskValidation(
-    context: McpToolContext,
-    taskId: string
-  ): Promise<{ validationCommand: string } | null>;
-}
+// interface McpTool {
+//   toolName: string;
+//   toolDescription: string;
+//   toolVersion: string;
+//   // Define other methods if specified by the McpTool interface
+//   startNewPlan(
+//     context: McpToolContext,
+//     prdDetails: { name: string; description: string; sourceTool?: string }
+//   ): Promise<{ planId: string; firstTask?: Task }>;
+//   getPlanStatus(
+//     context: McpToolContext,
+//     planId: string
+//   ): Promise<PlanOverview | null>;
+//   getNextTask(context: McpToolContext, planId: string): Promise<Task | null>;
+//   updateTaskStatus(
+//     context: McpToolContext,
+//     taskId: string,
+//     status: TaskStatus,
+//     details?: { validationOutput?: string; notes?: string; exitCode?: number }
+//   ): Promise<void>;
+//   requestTaskValidation(
+//     context: McpToolContext,
+//     taskId: string
+//   ): Promise<{ validationCommand: string } | null>;
+// }
 
 // Define PlanOverview based on expected structure for getPlanStatus
 export interface PlanOverview extends Prd {
   phases: (Phase & { tasks: Task[] })[];
 }
 
-export class VibePlannerTool implements McpTool {
+@injectable()
+export class VibePlannerTool /* implements McpTool - Removed */ {
   public readonly toolName = 'VibePlannerTool';
   public readonly toolDescription =
     'A tool for managing development plans and tasks.';
   public readonly toolVersion = '0.1.0';
 
-  private prdLifecycleService: PrdLifecycleService;
-  private phaseControlService: PhaseControlService;
-  private taskOrchestrationService: TaskOrchestrationService;
-  // DataPersistenceService and repositories are internal to the services usually,
-  // but instantiating here if not using DI container like tsyringe.
-  private dataPersistenceService: DataPersistenceService;
-  private prdRepository: PrdRepository;
-  private phaseRepository: PhaseRepository;
-  private taskRepository: TaskRepository;
-
-  constructor() {
-    // Schema initialization is assumed to be handled by the application startup
-    // or by test setups (e.g., resetDatabase for tests).
-
-    // Instantiate repositories
-    this.prdRepository = new PrdRepository();
-    this.phaseRepository = new PhaseRepository();
-    this.taskRepository = new TaskRepository();
-
-    // Instantiate DataPersistenceService with repositories
-    this.dataPersistenceService = new DataPersistenceService(
-      this.prdRepository,
-      this.phaseRepository,
-      this.taskRepository
-    );
-
-    // Instantiate main services with DataPersistenceService
-    this.prdLifecycleService = new PrdLifecycleService(
-      this.dataPersistenceService
-    );
-    this.phaseControlService = new PhaseControlService(
-      this.dataPersistenceService
-    );
-    this.taskOrchestrationService = new TaskOrchestrationService(
-      this.dataPersistenceService,
-      this.phaseControlService // TaskOrchestrationService might need PhaseControlService
-    );
-  }
+  constructor(
+    @inject(PrdLifecycleService)
+    private prdLifecycleService: PrdLifecycleService,
+    @inject(PhaseControlService)
+    private phaseControlService: PhaseControlService,
+    @inject(TaskOrchestrationService)
+    private taskOrchestrationService: TaskOrchestrationService
+  ) {}
 
   async startNewPlan(
-    context: McpToolContext,
+    context: any, // McpToolContext replaced with any
     prdDetails: { name: string; description: string; sourceTool?: string }
   ): Promise<{ planId: string; firstTask?: Task }> {
-    console.log(
-      'VibePlannerTool: startNewPlan called with context:',
-      context,
-      'and details:',
-      prdDetails
-    );
     const prd = await this.prdLifecycleService.initializePrd({
       name: prdDetails.name,
       description: prdDetails.description,
@@ -130,7 +93,7 @@ export class VibePlannerTool implements McpTool {
   }
 
   async getPlanStatus(
-    context: McpToolContext,
+    context: any, // McpToolContext replaced with any
     planId: string
   ): Promise<PlanOverview | null> {
     console.log(
@@ -175,7 +138,7 @@ export class VibePlannerTool implements McpTool {
   }
 
   async getNextTask(
-    context: McpToolContext,
+    context: any, // McpToolContext replaced with any
     planId: string
   ): Promise<Task | null> {
     console.log(
@@ -188,7 +151,7 @@ export class VibePlannerTool implements McpTool {
   }
 
   async updateTaskStatus(
-    context: McpToolContext,
+    context: any, // McpToolContext replaced with any
     taskId: string,
     status: TaskStatus,
     details?: { validationOutput?: string; notes?: string; exitCode?: number }
@@ -225,7 +188,7 @@ export class VibePlannerTool implements McpTool {
   }
 
   async requestTaskValidation(
-    context: McpToolContext,
+    context: any, // McpToolContext replaced with any
     taskId: string
   ): Promise<{ validationCommand: string } | null> {
     console.log(

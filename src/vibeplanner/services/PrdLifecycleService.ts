@@ -1,5 +1,5 @@
 import { inject, singleton } from 'tsyringe';
-import { PhaseStatus, Prd } from '../types';
+import { PhaseStatus, PhaseStatusSchema, Prd } from '../types';
 import { DataPersistenceService } from './DataPersistenceService';
 
 export interface InitializePrdDetails {
@@ -21,20 +21,11 @@ export class PrdLifecycleService {
     const prdData = {
       name: details.name,
       description: details.description ?? undefined, // Pass undefined if null/undefined for Zod .optional()
+      status: PhaseStatusSchema.enum.pending, // Set default status
       // sourceTool is not in current PrdSchema. If added later, pass it here.
     };
     // Type assertion to satisfy Omit requirement if PrdSchema has more fields than InitializePrdDetails
-    return this.dataPersistenceService.createPrd(
-      prdData as Omit<
-        Prd,
-        | 'id'
-        | 'creationDate'
-        | 'updatedAt'
-        | 'phases'
-        | 'completionDate'
-        | 'status'
-      >
-    );
+    return this.dataPersistenceService.createPrd(prdData);
   }
 
   async getPrd(prdId: string): Promise<Prd | null> {

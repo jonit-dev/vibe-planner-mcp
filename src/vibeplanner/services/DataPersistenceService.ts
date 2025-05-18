@@ -1,33 +1,21 @@
-// import { db } from '../../services/db'; // No longer directly needed for CRUD
-import { db } from '../../services/db'; // Still needed for task_dependencies for now
+import { delay, inject, singleton } from 'tsyringe';
+import { db } from '../../services/db';
+// Import concrete repository classes
 import { PhaseRepository } from '../repositories/PhaseRepository';
 import { PrdRepository } from '../repositories/PrdRepository';
 import { TaskRepository } from '../repositories/TaskRepository';
-import {
-  Phase,
-  // PhaseSchema, // No longer needed for rowToPhase
-  Prd,
-  // PrdSchema, // No longer needed for rowToPrd
-  Task,
-  TaskStatus,
-} from '../types';
+// Keep CreateDto, UpdateDto if used directly, otherwise remove if only for interfaces
+import { UpdateDto } from '../repositories/BaseRepository';
+import { Phase, Prd, Task, TaskStatus } from '../types';
 
-// Helper functions are no longer needed as repositories handle entity conversion.
-
+@singleton()
 export class DataPersistenceService {
-  private prdRepository: PrdRepository;
-  private phaseRepository: PhaseRepository;
-  private taskRepository: TaskRepository;
-
   constructor(
-    prdRepository: PrdRepository,
-    phaseRepository: PhaseRepository,
-    taskRepository: TaskRepository
-  ) {
-    this.prdRepository = prdRepository;
-    this.phaseRepository = phaseRepository;
-    this.taskRepository = taskRepository;
-  }
+    @inject(delay(() => PrdRepository)) private prdRepository: PrdRepository,
+    @inject(delay(() => PhaseRepository))
+    private phaseRepository: PhaseRepository,
+    @inject(delay(() => TaskRepository)) private taskRepository: TaskRepository
+  ) {}
 
   // PRD Methods
   async createPrd(
@@ -36,17 +24,17 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'phases' | 'completionDate'
     >
   ): Promise<Prd> {
-    const prdDataForRepo: Omit<
-      Prd,
-      'id' | 'creationDate' | 'updatedAt' | 'phases' | 'completionDate'
-    > = data;
-    return this.prdRepository.create(prdDataForRepo);
+    return this.prdRepository.create(data);
   }
 
   async getPrdById(id: string): Promise<Prd | null> {
+    // This service method now directly returns what the repository returns.
+    // If population of prd.phases was intended here, it needs to be explicit.
+    // For KISS, let's assume for now the repository provides what's needed or subsequent calls build up the object.
     const prd = await this.prdRepository.findById(id);
     if (prd) {
-      prd.phases = await this.getPhasesByPrdId(id);
+      // Original logic for populating phases was here, let's keep it for consistency for now
+      prd.phases = await this.getPhasesByPrdId(prd.id);
     }
     return prd;
   }
@@ -65,7 +53,10 @@ export class DataPersistenceService {
     id: string,
     data: Partial<Omit<Prd, 'id' | 'creationDate' | 'updatedAt' | 'phases'>>
   ): Promise<Prd | null> {
-    const updatedPrd = await this.prdRepository.update(id, data);
+    const updatedPrd = await this.prdRepository.update(
+      id,
+      data as UpdateDto<Prd>
+    );
     if (updatedPrd) {
       updatedPrd.phases = await this.getPhasesByPrdId(id);
     }
@@ -83,11 +74,7 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'tasks' | 'completionDate'
     >
   ): Promise<Phase> {
-    const phaseDataForRepo: Omit<
-      Phase,
-      'id' | 'creationDate' | 'updatedAt' | 'tasks' | 'completionDate'
-    > = data;
-    return this.phaseRepository.create(phaseDataForRepo);
+    return this.phaseRepository.create(data);
   }
 
   async getPhaseById(id: string): Promise<Phase | null> {
@@ -112,7 +99,10 @@ export class DataPersistenceService {
       Omit<Phase, 'id' | 'creationDate' | 'updatedAt' | 'tasks' | 'prdId'>
     >
   ): Promise<Phase | null> {
-    const updatedPhase = await this.phaseRepository.update(id, data);
+    const updatedPhase = await this.phaseRepository.update(
+      id,
+      data as UpdateDto<Phase>
+    );
     if (updatedPhase) {
       updatedPhase.tasks = await this.getTasksByPhaseId(id);
     }
@@ -127,25 +117,12 @@ export class DataPersistenceService {
   async createTask(
     data: Omit<
       Task,
-      | 'id'
-      | 'creationDate'
-      | 'updatedAt'
-      | 'completionDate'
-      // | 'isValidated' // isValidated might have a default in schema/repo, TBD
-      | 'dependencies'
+      'id' | 'creationDate' | 'updatedAt' | 'completionDate' | 'dependencies'
     >
   ): Promise<Task> {
-    // The DTO for repository create excludes id, creationDate, updatedAt.
-    // dependencies is a relational property, not set at basic entity creation.
-    // completionDate and isValidated are handled by repo or DB defaults/schema.
-    const taskDataForRepo: Omit<
-      Task,
-      'id' | 'creationDate' | 'updatedAt' | 'dependencies' | 'completionDate'
-    > = data;
-    return this.taskRepository.create(taskDataForRepo);
+    return this.taskRepository.create(data);
   }
 
-  // This method remains as it uses the task_dependencies table directly
   private async getTaskDependencies(taskId: string): Promise<string[]> {
     const stmt = db.prepare(
       'SELECT dependencyId FROM task_dependencies WHERE taskId = ?'
@@ -157,7 +134,6 @@ export class DataPersistenceService {
   async getTaskById(id: string): Promise<Task | null> {
     const task = await this.taskRepository.findById(id);
     if (task) {
-      // Repositories return flat entities. Populate dependencies here.
       task.dependencies = await this.getTaskDependencies(id);
     }
     return task;
@@ -167,26 +143,20 @@ export class DataPersistenceService {
     phaseId: string,
     statusFilter?: TaskStatus[]
   ): Promise<Task[]> {
-    // TaskRepository has findByPhaseId, which returns flat tasks.
     const tasks = await this.taskRepository.findByPhaseId(
       phaseId,
       statusFilter
     );
-    // Populate dependencies for each task
     for (const task of tasks) {
       task.dependencies = await this.getTaskDependencies(task.id);
     }
-    // findByPhaseId should already order by "order", even with filter
     return tasks;
   }
 
-  // This method remains as it uses the task_dependencies table directly
   async updateTaskDependencies(
     taskId: string,
     dependencyIds: string[]
   ): Promise<void> {
-    // Simple approach: delete all existing and insert new ones
-    // More sophisticated logic (diffing) could be used for performance if needed
     db.transaction(() => {
       db.prepare('DELETE FROM task_dependencies WHERE taskId = ?').run(taskId);
       const stmt = db.prepare(
@@ -206,19 +176,18 @@ export class DataPersistenceService {
         'id' | 'creationDate' | 'updatedAt' | 'phaseId' | 'dependencies'
       >
     >
-    // phaseId is not typically updated this way (tasks are moved between phases differently)
-    // dependencies are updated via updateTaskDependencies
   ): Promise<Task | null> {
-    const updatedTask = await this.taskRepository.update(id, data);
+    const updatedTask = await this.taskRepository.update(
+      id,
+      data as UpdateDto<Task>
+    );
     if (updatedTask) {
-      // Re-fetch dependencies as they are not part of the direct update/return from repo
       updatedTask.dependencies = await this.getTaskDependencies(id);
     }
     return updatedTask;
   }
 
   async deleteTask(id: string): Promise<boolean> {
-    // Also delete associated dependencies
     db.prepare(
       'DELETE FROM task_dependencies WHERE taskId = ? OR dependencyId = ?'
     ).run(id, id);

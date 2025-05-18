@@ -24,7 +24,7 @@
     "better-sqlite3": "^9.0.0",
     "express": "^5.1.0",
     "reflect-metadata": "^0.2.2",
-    "tsyringe": "^4.8.0",
+    "tsyringe": "^4.10.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {

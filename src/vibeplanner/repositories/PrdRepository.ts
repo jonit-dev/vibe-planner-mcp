@@ -1,6 +1,9 @@
+// import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import { Prd, PrdSchema } from '../types';
 import { BaseRepository } from './BaseRepository';
 
+@injectable()
 export class PrdRepository extends BaseRepository<Prd, typeof PrdSchema> {
   constructor() {
     super('prds', PrdSchema);

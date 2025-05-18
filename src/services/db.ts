@@ -81,7 +81,6 @@ function _initializeSchemaInternal(
 export function initializeSchema(ddlStatements: string): void {
   try {
     db.exec(ddlStatements);
-    console.log('Database schema initialized successfully.');
   } catch (error) {
     console.error('Error initializing database schema:', error);
     throw error; // Re-throw to allow calling code to handle

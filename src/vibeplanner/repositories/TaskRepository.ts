@@ -1,7 +1,10 @@
+// import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import { db } from '../../services/db'; // For custom queries
 import { Task, TaskSchema, TaskStatus } from '../types';
 import { BaseRepository } from './BaseRepository';
 
+@injectable()
 export class TaskRepository extends BaseRepository<Task, typeof TaskSchema> {
   constructor() {
     super('tasks', TaskSchema);
