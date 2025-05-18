@@ -21,7 +21,7 @@
   "author": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.4",
-    "better-sqlite3": "^9.0.0",
+    "better-sqlite3": "^11.10.0",
     "express": "^5.1.0",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.10.0",

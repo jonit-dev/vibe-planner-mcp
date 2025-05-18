@@ -1,3 +1,4 @@
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import fs from 'fs';
 import path from 'path';
 import { container } from 'tsyringe';
@@ -12,7 +13,7 @@ import { PhaseControlService } from '../services/PhaseControlService';
 import { PrdLifecycleService } from '../services/PrdLifecycleService';
 import { RepositoryProvider } from '../services/RepositoryProvider';
 import { TaskOrchestrationService } from '../services/TaskOrchestrationService';
-import { Prd } from '../types';
+import { Prd, Task } from '../types';
 
 // Helper to load DDL from markdown
 const getDdlStatements = () => {
@@ -53,7 +54,7 @@ const resetDatabase = () => {
   initializeSchema(ddl); // Re-initialize schema
 };
 
-const mockMcpContext = {}; // Simple mock context for now
+const mockMcpContext = {} as any; // Cast to any to satisfy RequestHandlerExtra for now in tests
 
 describe('VibePlannerTool Integration Tests', () => {
   let vibePlannerTool: VibePlannerTool;
@@ -90,16 +91,37 @@ describe('VibePlannerTool Integration Tests', () => {
       const planDescription =
         'This is a detailed description for the test plan.';
 
-      const result = await vibePlannerTool.startNewPlan(mockMcpContext, {
-        name: planName,
-        description: planDescription,
-      });
+      const mockExtra = {
+        signal: new AbortController().signal,
+        requestId: 'test-request-id',
+        sendNotification: async () => {},
+        sendRequest: async () => ({}),
+      } as any; // Kept as any for brevity in this example, but could be typed more strictly
+
+      const result: CallToolResult = await vibePlannerTool.startNewPlan(
+        mockExtra,
+        {
+          name: planName,
+          description: planDescription,
+        }
+      );
 
       expect(result).toBeDefined();
-      expect(result.planId).toBeTypeOf('string');
+      expect(result.content).toBeDefined();
+      expect(Array.isArray(result.content)).toBe(true);
+      expect(result.structuredContent).toBeDefined();
 
+      // Define the expected shape of structuredContent for this specific tool method
+      const structuredContent = result.structuredContent as {
+        planId: string;
+        firstTask?: Task;
+      };
+
+      expect(structuredContent.planId).toBeTypeOf('string');
+
+      const prdId = structuredContent.planId;
       const prd = (await localDataPersistenceService.getPrdById(
-        result.planId
+        prdId
       )) as Prd | null;
       expect(prd).not.toBeNull();
       expect(prd?.name).toBe(planName);
