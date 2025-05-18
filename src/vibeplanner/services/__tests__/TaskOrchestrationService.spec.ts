@@ -11,7 +11,11 @@ import {
 } from '../../types';
 import { DataPersistenceService } from '../DataPersistenceService';
 import { PhaseControlService } from '../PhaseControlService';
-import { TaskOrchestrationService } from '../TaskOrchestrationService';
+import {
+  AddTaskDetails,
+  TaskOrchestrationService,
+  UpdateTaskDetails,
+} from '../TaskOrchestrationService';
 
 // Mock services
 const mockDataPersistenceService = mock<DataPersistenceService>();
@@ -263,19 +267,12 @@ describe('TaskOrchestrationService', () => {
     });
 
     it('should return null if task to update is not found', async () => {
-      const taskId = 'non-existent-task-id';
-      const updates: UpdateTaskDetails = {
-        name: 'Updated Task Name',
-      };
+      const taskId = 'non-existent-task';
       mockDataPersistenceService.getTaskById.mockResolvedValue(null);
-
-      const task = await taskOrchestrationService.updateTask(taskId, updates);
-
-      expect(mockDataPersistenceService.getTaskById).toHaveBeenCalledWith(
-        taskId
-      );
-      expect(mockDataPersistenceService.updateTask).not.toHaveBeenCalled();
-      expect(task).toBeNull();
+      const result = await taskOrchestrationService.updateTask(taskId, {
+        name: 'New Name',
+      });
+      expect(result).toBeNull();
     });
 
     it('should throw an error if update data is invalid', async () => {
@@ -292,9 +289,346 @@ describe('TaskOrchestrationService', () => {
       ).rejects.toThrow(/Invalid task data for update/);
       expect(mockDataPersistenceService.updateTask).not.toHaveBeenCalled();
     });
+
+    it('should throw validation error for invalid update data', async () => {
+      const existingTask = createMockTask({});
+      mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+      // Attempt to update with an invalid status not in TaskStatus enum
+      const invalidUpdates = { status: 'invalid-status-value' as any };
+
+      await expect(
+        taskOrchestrationService.updateTask(existingTask.id, invalidUpdates)
+      ).rejects.toThrow(
+        /Invalid task data for update:.*Expected 'pending' | 'in_progress' | 'completed' | 'validated' | 'blocked' | 'cancelled' | 'failed' | 'needs_review', received 'invalid-status-value'/
+      );
+    });
+
+    describe('validation logic', () => {
+      let existingTask: Task;
+      const mockValidationCommand = 'npm run test';
+
+      beforeEach(() => {
+        existingTask = createMockTask({
+          status: TaskStatusSchema.enum.pending,
+          isValidated: false,
+          validationCommand: mockValidationCommand,
+          validationOutput: undefined,
+          dependencies: [],
+        });
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+        mockDataPersistenceService.updateTask.mockImplementation((async (
+          taskId: string,
+          updates: Partial<
+            Omit<
+              Task,
+              'id' | 'creationDate' | 'updatedAt' | 'phaseId' | 'dependencies'
+            >
+          >
+        ) => {
+          const fullPotentialUpdate: Task = {
+            ...existingTask,
+            ...updates,
+            id: taskId,
+            updatedAt: new Date(),
+            phaseId: existingTask.phaseId,
+            creationDate: existingTask.creationDate,
+            dependencies: existingTask.dependencies,
+          };
+          return TaskSchema.parse(fullPotentialUpdate);
+        }) as any);
+      });
+
+      const commonValidationTestCases = [
+        {
+          description: 'should update task to validated on exitCode 0',
+          updates: { exitCode: 0, validationOutput: 'Tests passed' },
+          expectedProcessedUpdates: {
+            status: TaskStatusSchema.enum.validated,
+            isValidated: true,
+            validationOutput: 'Tests passed',
+          },
+          expectedResult: {
+            status: TaskStatusSchema.enum.validated,
+            isValidated: true,
+            validationOutput: 'Tests passed',
+          },
+        },
+        {
+          description:
+            'should update task to needs_review on non-zero exitCode',
+          updates: { exitCode: 1, validationOutput: 'Tests failed' },
+          expectedProcessedUpdates: {
+            status: TaskStatusSchema.enum.needs_review,
+            isValidated: false,
+            validationOutput: 'Tests failed',
+          },
+          expectedResult: {
+            status: TaskStatusSchema.enum.needs_review,
+            isValidated: false,
+            validationOutput: 'Tests failed',
+          },
+        },
+        {
+          description:
+            'should update task to validated on validationOutcome: success',
+          updates: {
+            validationOutcome: 'success' as const,
+            validationOutput: 'Manually passed',
+          },
+          expectedProcessedUpdates: {
+            status: TaskStatusSchema.enum.validated,
+            isValidated: true,
+            validationOutput: 'Manually passed',
+          },
+          expectedResult: {
+            status: TaskStatusSchema.enum.validated,
+            isValidated: true,
+            validationOutput: 'Manually passed',
+          },
+        },
+        {
+          description:
+            'should update task to needs_review on validationOutcome: failure',
+          updates: {
+            validationOutcome: 'failure' as const,
+            validationOutput: 'Manually failed',
+          },
+          expectedProcessedUpdates: {
+            status: TaskStatusSchema.enum.needs_review,
+            isValidated: false,
+            validationOutput: 'Manually failed',
+          },
+          expectedResult: {
+            status: TaskStatusSchema.enum.needs_review,
+            isValidated: false,
+            validationOutput: 'Manually failed',
+          },
+        },
+      ];
+
+      describe.each(commonValidationTestCases)(
+        '$description',
+        ({ updates, expectedProcessedUpdates, expectedResult }) => {
+          it('processes updates and reflects them in the returned task', async () => {
+            // existingTask is set up in beforeEach with validationCommand
+            const result = await taskOrchestrationService.updateTask(
+              existingTask.id,
+              updates as UpdateTaskDetails
+            );
+
+            expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+              existingTask.id,
+              expect.objectContaining(expectedProcessedUpdates)
+            );
+
+            // Verify key properties on the result object
+            Object.keys(expectedResult).forEach((key) => {
+              expect((result as any)[key]).toEqual(
+                (expectedResult as any)[key]
+              );
+            });
+          });
+        }
+      );
+
+      it('should not use exitCode if task has no validationCommand', async () => {
+        existingTask.validationCommand = undefined;
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask); // Ensure this modified task is returned
+
+        // Re-mock updateTask implementation to reflect the potentially different existingTask state for this specific test
+        // Or ensure the generic one correctly handles `existingTask` updates. The current generic one should be fine.
+        // The critical part is that `existingTask` variable is updated and the mock implementation closes over it.
+
+        const updates: UpdateTaskDetails = {
+          exitCode: 0, // This should be ignored for status/isValidated
+          validationOutput: 'Output',
+          name: 'Still Pending',
+        };
+
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            name: 'Still Pending',
+            validationOutput: 'Output',
+          })
+        );
+        // Crucially, status and isValidated should NOT have changed based on exitCode
+        expect(mockDataPersistenceService.updateTask).not.toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            status: TaskStatusSchema.enum.validated, // Should not become validated
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.pending); // Remains pending (initial state)
+        expect(result?.isValidated).toBe(false); // Remains false (initial state)
+        expect(result?.name).toBe('Still Pending');
+        expect(result?.validationOutput).toBe('Output');
+      });
+
+      it('should update task to validated and isValidated true if status is set to validated directly', async () => {
+        const updates: UpdateTaskDetails = {
+          status: TaskStatusSchema.enum.validated,
+          validationOutput: 'Directly validated',
+        };
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            status: TaskStatusSchema.enum.validated,
+            isValidated: true,
+            validationOutput: 'Directly validated',
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.validated);
+        expect(result?.isValidated).toBe(true);
+      });
+
+      it('should set isValidated to false if status changes from validated to non-validated, and isValidated not explicitly set', async () => {
+        existingTask.status = TaskStatusSchema.enum.validated;
+        existingTask.isValidated = true;
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+        const updates: UpdateTaskDetails = {
+          status: TaskStatusSchema.enum.pending,
+        }; // No explicit isValidated
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            status: TaskStatusSchema.enum.pending,
+            isValidated: false, // Should be set to false
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.pending);
+        expect(result?.isValidated).toBe(false);
+      });
+
+      it('should respect explicit isValidated: true when status changes from validated to non-validated', async () => {
+        existingTask.status = TaskStatusSchema.enum.validated;
+        existingTask.isValidated = true;
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+        const updates: UpdateTaskDetails = {
+          status: TaskStatusSchema.enum.pending,
+          isValidated: true,
+        };
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            status: TaskStatusSchema.enum.pending,
+            isValidated: true, // Should respect explicit true
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.pending);
+        expect(result?.isValidated).toBe(true);
+      });
+
+      it('should allow setting isValidated directly to true without status change', async () => {
+        existingTask.status = TaskStatusSchema.enum.pending;
+        existingTask.isValidated = false;
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+        const updates: UpdateTaskDetails = { isValidated: true };
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            // status: TaskStatusSchema.enum.pending, // Status should not be in processedUpdates if not in original updates
+            isValidated: true,
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.pending); // Verify status on the result
+        expect(result?.isValidated).toBe(true);
+      });
+
+      it('should allow setting isValidated directly to false, even if status is validated', async () => {
+        existingTask.status = TaskStatusSchema.enum.validated;
+        existingTask.isValidated = true;
+        mockDataPersistenceService.getTaskById.mockResolvedValue(existingTask);
+
+        const updates: UpdateTaskDetails = { isValidated: false };
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            // status: TaskStatusSchema.enum.validated, // Status should not be in processedUpdates
+            isValidated: false,
+          })
+        );
+        expect(result?.status).toBe(TaskStatusSchema.enum.validated); // Verify status on the result
+        expect(result?.isValidated).toBe(false);
+      });
+
+      it('should store validationOutput even if no other validation logic is triggered', async () => {
+        const updates: UpdateTaskDetails = {
+          validationOutput: 'Some ad-hoc output',
+          name: 'Updated Name',
+        };
+        const result = await taskOrchestrationService.updateTask(
+          existingTask.id,
+          updates
+        );
+
+        expect(mockDataPersistenceService.updateTask).toHaveBeenCalledWith(
+          existingTask.id,
+          expect.objectContaining({
+            name: 'Updated Name',
+            validationOutput: 'Some ad-hoc output',
+            // status: existingTask.status, // Status should not be in processedUpdates
+            // isValidated: existingTask.isValidated, // isValidated should not be in processedUpdates unless in original updates
+          })
+        );
+        expect(result?.validationOutput).toBe('Some ad-hoc output');
+        expect(result?.name).toBe('Updated Name');
+        expect(result?.status).toBe(existingTask.status); // Verify status on result
+        expect(result?.isValidated).toBe(existingTask.isValidated); // Verify isValidated on result
+      });
+    });
   });
 
   describe('getNextTaskForPlan', () => {
+    const setupGetNextTaskMocks = (
+      phasesToReturn: Phase[],
+      tasksByPhaseIdMap: Record<string, Task[]>,
+      taskByIdMap: Record<string, Task | null> = {}
+    ) => {
+      mockPhaseControlService.getPhasesForPrd.mockResolvedValue(phasesToReturn);
+      mockDataPersistenceService.getTasksByPhaseId.mockImplementation(
+        (async (phaseId: string) => tasksByPhaseIdMap[phaseId] || []) as any
+      );
+      mockDataPersistenceService.getTaskById.mockImplementation(
+        (async (taskId: string) => taskByIdMap[taskId] || null) as any
+      );
+    };
+
     it('should return the first pending task in the first pending/ongoing phase', async () => {
       const phase1 = createMockPhase({
         id: crypto.randomUUID(),
@@ -335,19 +669,11 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([
-        phase1,
-        phase2,
-        phase3,
-      ]);
-      mockDataPersistenceService.getTasksByPhaseId.mockImplementation(
-        async (phaseId: string) => {
-          if (phaseId === phase1.id) return [task1_phase1];
-          if (phaseId === phase2.id) return [task1_phase2, task2_phase2];
-          if (phaseId === phase3.id) return [task1_phase3];
-          return [];
-        }
-      );
+      setupGetNextTaskMocks([phase1, phase2, phase3], {
+        [phase1.id]: [task1_phase1],
+        [phase2.id]: [task1_phase2, task2_phase2],
+        [phase3.id]: [task1_phase3],
+      });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
@@ -385,12 +711,9 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([
-        task1_phase1,
-        task2_phase1,
-        task3_phase1,
-      ]);
+      setupGetNextTaskMocks([phase1], {
+        [phase1.id]: [task1_phase1, task2_phase1, task3_phase1],
+      });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
@@ -416,13 +739,7 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([
-        phase1,
-        phase2,
-      ]);
-      mockDataPersistenceService.getTasksByPhaseId.mockImplementation(
-        async (pId: string) => (pId === phase2.id ? [task1_phase2] : [])
-      );
+      setupGetNextTaskMocks([phase1, phase2], { [phase2.id]: [task1_phase2] });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
@@ -431,7 +748,7 @@ describe('TaskOrchestrationService', () => {
     });
 
     it('should return null if no phases exist for the PRD', async () => {
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([]);
+      setupGetNextTaskMocks([], {});
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
       );
@@ -442,7 +759,7 @@ describe('TaskOrchestrationService', () => {
       const phase1 = createMockPhase({
         status: PhaseStatusSchema.enum.completed,
       });
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
+      setupGetNextTaskMocks([phase1], {});
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
       );
@@ -453,8 +770,7 @@ describe('TaskOrchestrationService', () => {
       const phase1 = createMockPhase({
         status: PhaseStatusSchema.enum.pending,
       });
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([]); // No tasks for this phase
+      setupGetNextTaskMocks([phase1], { [phase1.id]: [] });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
@@ -482,11 +798,9 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.blocked,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([
-        task1_phase1,
-        task2_phase1,
-      ]);
+      setupGetNextTaskMocks([phase1], {
+        [phase1.id]: [task1_phase1, task2_phase1],
+      });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId
@@ -520,17 +834,12 @@ describe('TaskOrchestrationService', () => {
         dependencies: [depTask1.id, depTask2.id],
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      // The main loop iterates tasks from getTasksByPhaseId. For this test, targetTask is the candidate.
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([
-        targetTask,
-      ]);
-      mockDataPersistenceService.getTaskById.mockImplementation(
-        async (taskId: string) => {
-          if (taskId === depTask1.id) return depTask1;
-          if (taskId === depTask2.id) return depTask2;
-          // if (taskId === targetTask.id) return targetTask; // targetTask is already from getTasksByPhaseId
-          return null;
+      setupGetNextTaskMocks(
+        [phase1],
+        { [phase1.id]: [targetTask] },
+        {
+          [depTask1.id]: depTask1,
+          [depTask2.id]: depTask2,
         }
       );
 
@@ -571,17 +880,12 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       }); // Next available
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      // Main loop iterates targetTask then unrelatedTask
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([
-        targetTask,
-        unrelatedTask,
-      ]);
-      mockDataPersistenceService.getTaskById.mockImplementation(
-        async (taskId: string) => {
-          if (taskId === depTask1.id) return depTask1;
-          if (taskId === depTask2.id) return depTask2;
-          return null;
+      setupGetNextTaskMocks(
+        [phase1],
+        { [phase1.id]: [targetTask, unrelatedTask] },
+        {
+          [depTask1.id]: depTask1,
+          [depTask2.id]: depTask2,
         }
       );
 
@@ -616,17 +920,10 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([phase1]);
-      // Main loop iterates taskWithUnmetDep then taskWithoutDep
-      mockDataPersistenceService.getTasksByPhaseId.mockResolvedValue([
-        taskWithUnmetDep,
-        taskWithoutDep,
-      ]);
-      mockDataPersistenceService.getTaskById.mockImplementation(
-        async (taskId: string) => {
-          if (taskId === depTaskUnmet.id) return depTaskUnmet;
-          return null;
-        }
+      setupGetNextTaskMocks(
+        [phase1],
+        { [phase1.id]: [taskWithUnmetDep, taskWithoutDep] },
+        { [depTaskUnmet.id]: depTaskUnmet }
       );
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
@@ -669,14 +966,10 @@ describe('TaskOrchestrationService', () => {
         status: TaskStatusSchema.enum.pending,
       });
 
-      mockPhaseControlService.getPhasesForPrd.mockResolvedValue([p2, p1]); // Deliberately unsorted
-      mockDataPersistenceService.getTasksByPhaseId.mockImplementation(
-        async (phaseId: string, statusFilter?: TaskStatus[]) => {
-          if (phaseId === phase1Id) return [t2p1, t1p1]; // Deliberately unsorted
-          if (phaseId === phase2Id) return [t1p2];
-          return [];
-        }
-      );
+      setupGetNextTaskMocks([p2, p1], {
+        [phase1Id]: [t2p1, t1p1],
+        [phase2Id]: [t1p2],
+      });
 
       const nextTask = await taskOrchestrationService.getNextTaskForPlan(
         samplePrdId

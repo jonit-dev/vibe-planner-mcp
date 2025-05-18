@@ -30,6 +30,7 @@ export interface UpdateTaskDetails {
   isValidated?: boolean;
   dependencies?: string[];
   validationOutcome?: 'success' | 'failure';
+  exitCode?: number; // Added for validation results
 }
 
 @singleton()
@@ -131,42 +132,71 @@ export class TaskOrchestrationService {
       return null;
     }
 
-    // Separate validationOutcome from other updates
-    const { validationOutcome, ...otherUpdates } = updates;
-    // Initialize processedUpdates with updates that are actual Task fields
+    const { validationOutcome, exitCode, ...otherUpdates } = updates;
     const processedUpdates: Partial<
       | Omit<Task, 'id' | 'creationDate' | 'phaseId'>
-      | { status?: TaskStatus; isValidated?: boolean }
+      | {
+          status?: TaskStatus;
+          isValidated?: boolean;
+          validationOutput?: string;
+        }
     > = { ...otherUpdates };
 
-    // Handle validation outcome
-    if (validationOutcome) {
-      if (validationOutcome === 'success') {
-        processedUpdates.status = TaskStatusSchema.enum.validated;
+    // Initialize isValidated based on current task state or explicit update
+    if (updates.isValidated !== undefined) {
+      processedUpdates.isValidated = updates.isValidated;
+    } else {
+      // Preserve current isValidated state if not explicitly updated yet
+      // This might be overwritten by status changes or validation outcome
+      processedUpdates.isValidated = task.isValidated;
+    }
+
+    // Handle status updates and their implication on isValidated
+    if (updates.status) {
+      processedUpdates.status = updates.status;
+      if (updates.status === TaskStatusSchema.enum.validated) {
+        // If status is explicitly set to 'validated', then isValidated must be true.
         processedUpdates.isValidated = true;
       } else {
-        // 'failure'
-        processedUpdates.status = TaskStatusSchema.enum.needs_review;
-        processedUpdates.isValidated = false;
+        // If status is set to anything else, and isValidated was not explicitly set to true in this update
+        // then isValidated should be false.
+        if (updates.isValidated === undefined) {
+          // only if not explicitly set
+          processedUpdates.isValidated = false;
+        }
       }
-    } else if (updates.status === TaskStatusSchema.enum.validated) {
-      // If status is directly set to validated, ensure isValidated is true
-      // This also handles the case where `updates.isValidated` might be false/undefined but status is 'validated'
+    }
+
+    // Handle explicit validation outcome (overrides previous status/isValidated logic)
+    let validationSucceeded: boolean | undefined = undefined;
+    if (validationOutcome) {
+      validationSucceeded = validationOutcome === 'success';
+    } else if (exitCode !== undefined && task.validationCommand) {
+      const { interpretValidationResult } = await import(
+        '../validation/index.js'
+      );
+      const validationResult = interpretValidationResult(
+        exitCode,
+        updates.validationOutput || ''
+      );
+      validationSucceeded = validationResult.success;
+      processedUpdates.validationOutput = validationResult.processedOutput;
+    }
+
+    if (validationSucceeded === true) {
+      processedUpdates.status = TaskStatusSchema.enum.validated;
       processedUpdates.isValidated = true;
-    } else if (
-      updates.status &&
-      updates.status !== TaskStatusSchema.enum.validated &&
-      updates.isValidated === undefined
+    } else if (validationSucceeded === false) {
+      processedUpdates.status = TaskStatusSchema.enum.needs_review;
+      processedUpdates.isValidated = false;
+    }
+
+    // Ensure validationOutput from updates is preserved if not set by exitCode processing
+    if (
+      updates.validationOutput !== undefined &&
+      processedUpdates.validationOutput === undefined
     ) {
-      // If status is being changed to something other than validated, and isValidated is not explicitly set in the updates,
-      // and the task was previously validated, then mark it as not validated anymore.
-      if (task.status === TaskStatusSchema.enum.validated) {
-        processedUpdates.isValidated = false;
-      }
-    } else if (updates.isValidated !== undefined) {
-      // If isValidated is explicitly provided in updates (and not handled by validationOutcome or direct validated status setting)
-      // ensure it's part of processedUpdates.
-      processedUpdates.isValidated = updates.isValidated;
+      processedUpdates.validationOutput = updates.validationOutput;
     }
 
     // Merge updates with existing task data for Zod validation
