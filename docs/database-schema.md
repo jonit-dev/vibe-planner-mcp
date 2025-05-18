@@ -53,42 +53,56 @@ _Note: `order_num` is used in the diagram for clarity as `order` can be a reserv
 The following SQL statements define the tables and triggers for the VibePlanner database, intended for use with SQLite.
 
 ```sql
+-- Prds Table
 CREATE TABLE IF NOT EXISTS prds (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  sourceTool TEXT,
-  status TEXT DEFAULT 'pending',
-  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    creationDate TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    completionDate TEXT
 );
 
+-- Phases Table
 CREATE TABLE IF NOT EXISTS phases (
-  id TEXT PRIMARY KEY,
-  prdId TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'pending',
-  "order" INTEGER,
-  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (prdId) REFERENCES prds(id) ON DELETE CASCADE
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    creationDate TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    completionDate TEXT,
+    "order" INTEGER NOT NULL, -- "order" is a keyword, so quoted
+    prdId TEXT NOT NULL,
+    FOREIGN KEY (prdId) REFERENCES prds(id) ON DELETE CASCADE
 );
 
+-- Tasks Table
 CREATE TABLE IF NOT EXISTS tasks (
-  id TEXT PRIMARY KEY,
-  phaseId TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'pending',
-  isValidated BOOLEAN DEFAULT FALSE,
-  validationCommand TEXT,
-  validationOutput TEXT,
-  notes TEXT,
-  "order" INTEGER,
-  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (phaseId) REFERENCES phases(id) ON DELETE CASCADE
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    isValidated BOOLEAN NOT NULL DEFAULT 0,
+    creationDate TEXT NOT NULL,
+    updatedAt TEXT NOT NULL,
+    completionDate TEXT,
+    "order" INTEGER NOT NULL, -- "order" is a keyword, so quoted
+    phaseId TEXT NOT NULL,
+    validationCommand TEXT,
+    validationOutput TEXT,
+    notes TEXT,
+    FOREIGN KEY (phaseId) REFERENCES phases(id) ON DELETE CASCADE
+);
+
+-- Task Dependencies Table (Many-to-Many)
+-- A task can have multiple dependencies, and can be a dependency for multiple tasks.
+CREATE TABLE IF NOT EXISTS task_dependencies (
+    taskId TEXT NOT NULL,
+    dependencyId TEXT NOT NULL,
+    PRIMARY KEY (taskId, dependencyId),
+    FOREIGN KEY (taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (dependencyId) REFERENCES tasks(id) ON DELETE CASCADE
 );
 
 CREATE TRIGGER IF NOT EXISTS update_prds_updatedAt

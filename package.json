@@ -11,7 +11,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon --watch src --ext ts,json --exec 'yarn build && yarn start'",
-    "test": "vitest"
+    "test": "vitest --run"
   },
   "keywords": [
     "mcp",
@@ -21,12 +21,14 @@
   "author": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.4",
+    "better-sqlite3": "^9.0.0",
     "express": "^5.1.0",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.18",
     "nodemon": "^3.1.10",
