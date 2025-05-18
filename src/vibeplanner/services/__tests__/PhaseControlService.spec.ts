@@ -144,8 +144,12 @@ describe('PhaseControlService', () => {
       expect(mockDataPersistenceService.getPhasesByPrdId).toHaveBeenCalledWith(
         samplePrdId
       );
-      expect(phases[0].tasks.length).toBe(1);
-      expect(phases[0].tasks[0].name).toBe('Task 1');
+      expect(phases).toBeDefined();
+      expect(phases.length).toBeGreaterThan(0);
+      if (phases && phases.length > 0) {
+        expect(phases[0]?.tasks?.length).toBe(1);
+        expect(phases[0]?.tasks?.[0]?.name).toBe('Task 1');
+      }
     });
   });
 

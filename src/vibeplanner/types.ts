@@ -15,6 +15,8 @@ export const PhaseStatusSchema = z.enum([
   'in_progress',
   'completed',
   'on_hold',
+  // 'validated', // Not used yet, deferring decision
+  // 'failed',    // Not used yet, deferring decision
 ]);
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
 
@@ -27,25 +29,16 @@ export const TaskSchema = z.object({
     .nullable()
     .optional()
     .describe('Detailed description of the task'),
-  status: TaskStatusSchema.default('pending').describe(
-    'Current status of the task'
-  ),
-  isValidated: z
-    .boolean()
-    .default(false)
-    .describe('Whether the task has been validated'),
+  status: TaskStatusSchema.describe('Current status of the task'),
+  isValidated: z.boolean().describe('Whether the task has been validated'),
   dependencies: z
     .array(z.string().uuid())
-    .default([])
-    .describe('List of task IDs that this task depends on'),
-  creationDate: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the task was created'),
-  updatedAt: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the task was last updated'),
+    .optional()
+    .describe(
+      'List of task IDs that this task depends on. Populated by service layer.'
+    ),
+  creationDate: z.date().describe('Date when the task was created'),
+  updatedAt: z.date().describe('Date when the task was last updated'),
   completionDate: z
     .date()
     .optional()
@@ -86,21 +79,13 @@ export const PhaseSchema = z.object({
     .nullable()
     .optional()
     .describe('Detailed description of the phase'),
-  status: PhaseStatusSchema.default('pending').describe(
-    'Current status of the phase'
-  ),
+  status: PhaseStatusSchema,
   tasks: z
     .array(TaskSchema)
-    .default([])
-    .describe('List of tasks within this phase'),
-  creationDate: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the phase was created'),
-  updatedAt: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the phase was last updated'),
+    .optional()
+    .describe('List of tasks within this phase. Populated by service layer.'),
+  creationDate: z.date().describe('Date when the phase was created'),
+  updatedAt: z.date().describe('Date when the phase was last updated'),
   completionDate: z
     .date()
     .optional()
@@ -126,21 +111,13 @@ export const PrdSchema = z.object({
     .nullable()
     .optional()
     .describe('Overall description of the PRD'),
-  status: PhaseStatusSchema.default('pending').describe(
-    'Current status of the PRD'
-  ),
+  status: PhaseStatusSchema.describe('Current status of the PRD'),
   phases: z
     .array(PhaseSchema)
-    .default([])
-    .describe('List of phases within this PRD'),
-  creationDate: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the PRD was created'),
-  updatedAt: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the PRD was last updated'),
+    .optional()
+    .describe('List of phases within this PRD. Populated by service layer.'),
+  creationDate: z.date().describe('Date when the PRD was created'),
+  updatedAt: z.date().describe('Date when the PRD was last updated'),
   completionDate: z
     .date()
     .optional()
@@ -153,14 +130,11 @@ export const PlanOverviewSchema = z.object({
   id: z.string().uuid().describe('Unique identifier for the plan overview'),
   name: z.string().min(1).describe('Name of the overall plan'),
   description: z.string().optional().describe('Description of the plan'),
-  prds: z.array(PrdSchema).default([]).describe('List of PRDs in this plan'),
-  creationDate: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the plan was created'),
-  updatedAt: z
-    .date()
-    .default(() => new Date())
-    .describe('Date when the plan was last updated'),
+  prds: z
+    .array(PrdSchema)
+    .optional()
+    .describe('List of PRDs in this plan. Populated by service layer.'),
+  creationDate: z.date().describe('Date when the plan was created'),
+  updatedAt: z.date().describe('Date when the plan was last updated'),
 });
 export type PlanOverview = z.infer<typeof PlanOverviewSchema>;
