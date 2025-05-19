@@ -41,5 +41,41 @@ GET http://localhost:3000/api/plans
 # Note: Replace {{planId}} with an actual ID from a created plan
 GET http://localhost:3000/api/plans/{{planId}}
 
-### Get a non-existent plan by ID
-GET http://localhost:3000/api/plans/non-existent-id-123 
+### Get all phases for a specific plan
+# Note: Replace {{planId}} with an actual ID from a created plan
+GET http://localhost:3000/api/plans/4fde4f87-a556-4b33-a0a3-35a6f8afceb8/phases
+
+### Create a new phase in a plan
+# Note: Replace {{planId}} with an actual ID from a created plan
+POST http://localhost:3000/api/plans/4fde4f87-a556-4b33-a0a3-35a6f8afceb8/phases
+Content-Type: application/json
+
+{
+  "name": "Phase 1: Design",
+  "description": "Initial design and mockups for the project.",
+  "order": 1
+}
+
+### Create a new task
+# Note: Replace {{phaseId}} with an actual ID from a created phase
+POST http://localhost:3000/api/tasks
+Content-Type: application/json
+
+{
+  "phaseId": "20980730-8df9-4a43-bc7b-b5ba603d1f2f", 
+  "name": "Create wireframes",
+  "description": "Develop detailed wireframes for all screens.",
+  "order": 1
+}
+
+### Create another task in the same phase
+# Note: Replace {{phaseId}} with an actual ID from a created phase
+POST http://localhost:3000/api/tasks
+Content-Type: application/json
+
+{
+  "phaseId": "{{phaseId}}",
+  "name": "User testing for wireframes",
+  "description": "Conduct user testing sessions with the created wireframes.",
+  "order": 2
+}

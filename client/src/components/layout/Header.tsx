@@ -1,13 +1,13 @@
 import { LayoutDashboard, Moon, Search, Settings } from 'lucide-react';
 import React from 'react';
-// import { useKanbanStore } from '../../store/kanbanStore'; // Removed store import
+import { useTasksStore } from '../../store/tasksStore';
 
 const Header: React.FC = () => {
-  // const { filterOptions, setFilter } = useKanbanStore(); // Removed store usage
+  const { filterOptions, setFilter } = useTasksStore();
 
-  // const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => { // Search functionality removed for now
-  //   setFilter({ searchQuery: e.target.value });
-  // };
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilter({ searchQuery: e.target.value });
+  };
 
   return (
     <header className="bg-base-200 border-b border-neutral py-3 px-4">
@@ -26,11 +26,10 @@ const Header: React.FC = () => {
             </div>
             <input
               type="text"
-              placeholder="Search plans..." // Placeholder updated
+              placeholder="Search tasks..."
               className="input input-sm w-full pl-10 bg-base-300 border-neutral text-base-content"
-              // value={filterOptions.searchQuery} // Removed value binding
-              // onChange={handleSearch} // Removed onChange handler
-              disabled // Disabled for now
+              value={filterOptions.searchQuery}
+              onChange={handleSearch}
             />
           </div>
         </div>

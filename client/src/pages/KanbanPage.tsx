@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import KanbanBoard from '../components/kanban/KanbanBoard'; // Assuming this will be created
 import { usePlanStore } from '../store/planStore';
-// import KanbanBoard from '../components/kanban/KanbanBoard'; // Assuming this will be created
+import { useTasksStore } from '../store/tasksStore'; // Import the new tasks store
 
 const KanbanPage: React.FC = () => {
   const { planId } = useParams<{ planId: string }>();
@@ -13,15 +14,36 @@ const KanbanPage: React.FC = () => {
   const fetchPlanDetail = usePlanStore((state) => state.fetchPlanDetail);
   const clearCurrentPlanDetail = usePlanStore((state) => state.clearCurrentPlanDetail);
 
+  // From tasksStore - for managing and displaying tasks in the Kanban board
+  const loadPlanDataForTasks = useTasksStore((state) => state.loadPlanData);
+  const clearTasksData = useTasksStore((state) => state.clearPlanData);
+  // const tasksLoading = useTasksStore((state) => state.isLoading); // If needed for separate loading state for tasks
+  // const tasksError = useTasksStore((state) => state.error); // If needed for separate error state for tasks
+
   useEffect(() => {
     if (planId) {
-      fetchPlanDetail(planId);
+      fetchPlanDetail(planId); // Fetches the plan, including its phases and tasks
+    } else {
+      // If no planId, ensure both stores are cleared
+      clearCurrentPlanDetail();
+      clearTasksData();
     }
-    // Cleanup when component unmounts or planId changes
+    // Cleanup for planStore when component unmounts or planId changes
     return () => {
       clearCurrentPlanDetail();
+      clearTasksData(); // Also clear tasks data
     };
-  }, [planId, fetchPlanDetail, clearCurrentPlanDetail]);
+  }, [planId, fetchPlanDetail, clearCurrentPlanDetail, clearTasksData]);
+
+  // Effect to load data into tasksStore once planDetail is available
+  useEffect(() => {
+    if (currentPlanDetail && currentPlanDetail.id === planId) {
+      loadPlanDataForTasks(currentPlanDetail);
+    }
+    // Do not clear tasksData here based on currentPlanDetail directly,
+    // as it might cause data to disappear briefly during navigation or re-renders.
+    // The main cleanup in the previous useEffect handles planId changes.
+  }, [currentPlanDetail, planId, loadPlanDataForTasks]);
 
   if (!planId) {
     return (
@@ -59,18 +81,15 @@ const KanbanPage: React.FC = () => {
 
   return (
     <div className="p-4 flex-1 flex flex-col">
-      <h1 className="text-3xl font-bold mb-6 text-base-content">{currentPlanDetail.name}</h1>
-      {currentPlanDetail.description && (
-        <p className="mb-6 text-lg text-base-content opacity-80">{currentPlanDetail.description}</p>
-      )}
-      {/* <KanbanBoard plan={currentPlanDetail} /> */}
-      <div className="flex-1 bg-base-200 rounded-lg p-6 flex items-center justify-center">
+
+      <KanbanBoard />
+      {/* <div className="flex-1 bg-base-200 rounded-lg p-6 flex items-center justify-center">
         <p className="text-neutral-content opacity-50 text-center">
           Kanban board UI for "{currentPlanDetail.name}" will go here.
           <br />
           (Displaying {currentPlanDetail.phases?.length || 0} phases)
         </p>
-      </div>
+      </div> */}
     </div>
   );
 };
