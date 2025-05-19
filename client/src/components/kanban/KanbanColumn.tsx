@@ -1,16 +1,18 @@
 import { PlusCircle } from 'lucide-react';
 import React from 'react';
-import { Phase, Task } from '../../types';
+import { Task, TaskStatusType } from '../../types';
 import KanbanCard from './KanbanCard';
 
 export interface KanbanColumnProps {
-  phase: Phase;
+  columnTitle: string;
+  columnId: TaskStatusType;
   tasks: Task[];
   onAddTask: () => void;
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({
-  phase,
+  columnTitle,
+  columnId,
   tasks,
   onAddTask
 }) => {
@@ -18,7 +20,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     <div className="kanban-column bg-base-200 p-3 rounded-lg w-72 flex-shrink-0 flex flex-col max-h-full">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center">
-          <h3 className="font-semibold text-base-content text-md truncate" title={phase.name}>{phase.name}</h3>
+          <h3 className="font-semibold text-base-content text-md truncate" title={columnTitle}>{columnTitle}</h3>
         </div>
         <span className="badge badge-ghost badge-sm">{tasks.length}</span>
       </div>
@@ -30,7 +32,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           ))
         ) : (
           <div className="flex items-center justify-center h-20 text-neutral-content opacity-50 text-xs italic p-2 text-center">
-            No tasks in this phase.
+            No tasks in this column.
           </div>
         )}
       </div>

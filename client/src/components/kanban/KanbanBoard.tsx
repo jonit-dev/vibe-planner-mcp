@@ -2,36 +2,87 @@ import React, { useMemo } from 'react';
 // filterTasks utility might need adjustment or to be moved if complex filtering is needed based on tasksStore
 // import { filterTasks } from '../../lib/utils'; 
 import { useTasksStore } from '../../store/tasksStore'; // Updated to useTasksStore
-import { Task } from '../../types'; // Added Task and KanbanPhaseColumn imports
+import { Task, TaskStatusType } from '../../types'; // Added Task and KanbanPhaseColumn imports, changed to TaskStatusType
 import KanbanColumn from './KanbanColumn';
+
+// Define the statuses for Kanban columns in a logical workflow order
+const KANBAN_STATUSES: { id: TaskStatusType; title: string }[] = [
+  { id: 'pending', title: 'To Do' },
+  { id: 'in_progress', title: 'In Progress' },
+  { id: 'completed', title: 'Done' },     // Simplified to Done, was 'Completed'
+];
 
 const KanbanBoard: React.FC = () => {
   // Get data from the new useTasksStore
-  const phasesAsColumns = useTasksStore((state) => state.phasesAsColumns);
+  // const phasesAsColumns = useTasksStore((state) => state.phasesAsColumns); // No longer using phasesAsColumns
   const allTasksForPlan = useTasksStore((state) => state.tasks);
   const isLoading = useTasksStore((state) => state.isLoading);
   const error = useTasksStore((state) => state.error);
-  // const filterOptions = useTasksStore((state) => state.filterOptions); // If using filters
+  const filterOptions = useTasksStore((state) => state.filterOptions); // Get filter options
 
-  // Example: Memoize tasks per column if needed for performance or direct passing
-  // This assumes tasks in `allTasksForPlan` have a `phaseId` property.
-  const tasksByPhaseId = useMemo(() => {
-    const grouped: { [phaseId: string]: Task[] } = {};
-    allTasksForPlan.forEach(task => {
-      if (!grouped[task.phaseId]) {
-        grouped[task.phaseId] = [];
+  // Filter tasks based on sidebar selection before grouping by status
+  const tasksToDisplay = useMemo(() => {
+    if (filterOptions.status) {
+      return allTasksForPlan.filter(task => task.status === filterOptions.status);
+    }
+    return allTasksForPlan;
+  }, [allTasksForPlan, filterOptions.status]);
+
+  // Group tasks by their status using a defined mapping
+  const tasksByStatus = useMemo(() => {
+    const grouped: { [status in TaskStatusType]?: Task[] } = {};
+    KANBAN_STATUSES.forEach(statusInfo => {
+      grouped[statusInfo.id] = []; // Initialize for 'pending', 'in_progress', 'completed' columns
+    });
+
+    tasksToDisplay.forEach(task => {
+      let targetColumnId: TaskStatusType = 'pending'; // Default column
+
+      switch (task.status) {
+        case 'pending':
+        case 'cancelled':
+        case 'failed':
+          targetColumnId = 'pending';
+          break;
+        case 'in_progress':
+        case 'blocked':
+        case 'needs_review':
+          targetColumnId = 'in_progress';
+          break;
+        case 'completed':
+        case 'validated':
+          targetColumnId = 'completed';
+          break;
+        default:
+          // This case should ideally not be hit if all TaskStatusType values are handled.
+          // If a new status is added to TaskStatusType and not to this switch,
+          // it will default to 'pending'.
+          console.warn(`Task '${task.name}' (ID: ${task.id}) has unmapped status '${task.status}'. Placed in 'To Do'.`);
+          targetColumnId = 'pending';
+          break;
       }
-      grouped[task.phaseId].push(task);
+
+      if (grouped[targetColumnId]) {
+        grouped[targetColumnId]!.push(task);
+      } else {
+        // This else should ideally not be hit if KANBAN_STATUSES correctly define the columns 
+        // for which `grouped` was initialized (pending, in_progress, completed).
+        // If targetColumnId is somehow not one of these, default to 'pending' column.
+        console.error(`Task '${task.name}' (ID: ${task.id}) mapped to an unknown column ID '${targetColumnId}'. Forcing to 'To Do'.`);
+        if (grouped['pending']) {
+          grouped['pending']!.push(task);
+        }
+      }
     });
     return grouped;
-  }, [allTasksForPlan]);
+  }, [tasksToDisplay]); // KANBAN_STATUSES is constant, dependency is tasksToDisplay
 
-  const handleAddNewTaskToPhase = (phaseId: string) => {
+  const handleAddNewTaskToStatus = (status: TaskStatusType) => {
     // This would ideally open a modal or inline form
     // and then call an action from useTasksStore, e.g.:
     // const { addTask } = useTasksStore.getState();
-    // addTask({ name: 'New Task', description: '...', status: 'pending' /*, other fields */ }, phaseId);
-    alert(`Add new task to phase ${phaseId} - to be implemented`);
+    // addTask({ name: 'New Task', description: '...', status: status /*, other fields */ });
+    alert(`Add new task with status ${status} - to be implemented`);
   };
 
   if (isLoading) {
@@ -52,10 +103,10 @@ const KanbanBoard: React.FC = () => {
     );
   }
 
-  if (!phasesAsColumns || phasesAsColumns.length === 0) {
+  if (KANBAN_STATUSES.length === 0) { // Check against our defined statuses
     return (
       <div className="flex-1 flex items-center justify-center p-4">
-        <p className="text-neutral-content opacity-60">No phases (columns) defined for this plan.</p>
+        <p className="text-neutral-content opacity-60">No statuses (columns) defined for the board.</p>
       </div>
     );
   }
@@ -71,12 +122,15 @@ const KanbanBoard: React.FC = () => {
 
       <div className="flex-1 p-4 overflow-x-auto pb-6">
         <div className="flex h-full space-x-4">
-          {phasesAsColumns.map(phaseColumn => (
+          {KANBAN_STATUSES.map(statusInfo => (
             <KanbanColumn
-              key={phaseColumn.id}
-              phase={phaseColumn} // Pass the whole phase object to KanbanColumn
-              tasks={tasksByPhaseId[phaseColumn.id] || []} // Pass filtered tasks for this column
-              onAddTask={() => handleAddNewTaskToPhase(phaseColumn.id)} // Pass add task handler
+              key={statusInfo.id}
+              // Pass status information instead of phase
+              // KanbanColumn will need to be updated to accept these props
+              columnTitle={statusInfo.title}
+              columnId={statusInfo.id}
+              tasks={tasksByStatus[statusInfo.id] || []}
+              onAddTask={() => handleAddNewTaskToStatus(statusInfo.id)}
             />
           ))}
         </div>

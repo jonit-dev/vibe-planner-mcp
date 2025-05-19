@@ -1,6 +1,8 @@
 import React from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
+import TaskDetails from './components/kanban/TaskDetails';
 import Header from './components/layout/Header';
+import Sidebar from './components/layout/Sidebar';
 import HomePage from './pages/HomePage';
 import KanbanPage from './pages/KanbanPage';
 
@@ -8,11 +10,13 @@ const AppLayout: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-background text-base-content font-sans">
       <Header />
-      <div className="flex-1 flex overflow-hidden p-4 gap-4">
-        <div className="flex-1 flex flex-col overflow-y-auto w-full">
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 flex flex-col overflow-y-auto p-4 w-full">
           <Outlet />
-        </div>
+        </main>
       </div>
+      <TaskDetails />
     </div>
   );
 };
