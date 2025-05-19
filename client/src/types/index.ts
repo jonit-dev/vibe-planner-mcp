@@ -65,6 +65,8 @@ export interface PrdSummary {
   name: string;
   description?: string | null;
   createdAt: string; // Mapped from creationDate in the API
+  totalTasks: number; // Added for progress tracking
+  completedTasks: number; // Added for progress tracking
 }
 
 // Representing the full structure from /api/plans/:planId

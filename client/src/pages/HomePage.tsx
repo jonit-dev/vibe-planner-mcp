@@ -23,23 +23,6 @@ const HomePage: React.FC = () => {
     navigate(`/plan/${planId}`);
   };
 
-  // Dummy progress for now - API needs to provide this
-  const getPlanProgress = (planId: string): { total: number, completed: number, percentage: number } => {
-    // In a real scenario, this data would come from planSummary or a separate fetch
-    // For demonstration, let's simulate some progress.
-    // This should be removed/updated once API provides actual data.
-    const dummyProgressMap: { [key: string]: { total: number, completed: number } } = {
-      "plan-1": { total: 10, completed: 3 },
-      "plan-2": { total: 5, completed: 5 },
-      "plan-3": { total: 8, completed: 1 },
-    };
-    const progress = dummyProgressMap[planId] || { total: Math.floor(Math.random() * 10) + 5, completed: Math.floor(Math.random() * 5) };
-    return {
-      ...progress,
-      percentage: progress.total > 0 ? (progress.completed / progress.total) * 100 : 0,
-    };
-  };
-
   if (summariesLoading) {
     return (
       <main className="flex-1 bg-base-100 p-6 rounded-lg shadow flex flex-col items-center justify-center text-center">
@@ -75,9 +58,12 @@ const HomePage: React.FC = () => {
 
   return (
     <main className="flex-1 bg-base-100 p-4 md:p-6 rounded-lg shadow">
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
         {planSummaries.map((summary: PrdSummary) => {
-          const progress = getPlanProgress(summary.id); // Get dummy progress
+          const totalTasks = summary.totalTasks || 0;
+          const completedTasks = summary.completedTasks || 0;
+          const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
           return (
             <div
@@ -105,25 +91,24 @@ const HomePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Placeholder for Progress Bar - Requires API update */}
               <div className="my-3">
                 <div className="flex justify-between text-xs text-neutral-content opacity-80 mb-1">
                   <span>Progress</span>
-                  <span>{`${progress.completed}/${progress.total} tasks`}</span>
+                  <span>{`${completedTasks}/${totalTasks} tasks`}</span>
                 </div>
                 <div className="w-full bg-base-300 rounded-full h-2.5">
                   <div
                     className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progress.percentage}%` }}
+                    style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
-                {progress.percentage === 0 && progress.total === 0 && (
+                {percentage === 0 && totalTasks === 0 && (
                   <p className="text-xs text-neutral-content opacity-60 mt-1">No tasks yet. Add tasks to see progress.</p>
                 )}
-                {progress.total > 0 && progress.percentage < 100 && progress.percentage > 0 && (
+                {totalTasks > 0 && percentage < 100 && percentage > 0 && (
                   <p className="text-xs text-primary opacity-80 mt-1">Keep going!</p>
                 )}
-                {progress.percentage === 100 && progress.total > 0 && (
+                {percentage === 100 && totalTasks > 0 && (
                   <p className="text-xs text-success opacity-80 mt-1">Plan complete!</p>
                 )}
               </div>

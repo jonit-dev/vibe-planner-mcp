@@ -176,12 +176,31 @@ plansRouter.get(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const prds = await dataPersistenceService.getAllPrds();
-    const prdSummaries = prds.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      createdAt: p.creationDate,
-    }));
+    const prdSummaries = prds.map((p) => {
+      let totalTasks = 0;
+      let completedTasks = 0;
+
+      if (p.phases) {
+        for (const phase of p.phases) {
+          if (phase.tasks) {
+            totalTasks += phase.tasks.length;
+            completedTasks += phase.tasks.filter(
+              (task) =>
+                task.status === 'completed' || task.status === 'validated'
+            ).length;
+          }
+        }
+      }
+
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        createdAt: p.creationDate,
+        totalTasks,
+        completedTasks,
+      };
+    });
     return res.status(200).json(prdSummaries);
   })
 );
