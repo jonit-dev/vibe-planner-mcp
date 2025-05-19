@@ -1,8 +1,15 @@
 import 'reflect-metadata'; // Must be the first import
+import { container } from 'tsyringe';
+import { LoggerService } from './services/LoggerService';
+
+// Log CWD at startup
+const earlyLogger = container.resolve(LoggerService);
+earlyLogger.info(`[server.ts] EARLY LOG: process.cwd() is ${process.cwd()}`);
+
+import './services/tsyringe.config'; // Registers services and repositories
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { container } from 'tsyringe';
 import { z } from 'zod';
 import { registerPlanningTool } from './tools/planningTool.js';
 import { VibePlannerTool } from './vibeplanner/index.js';

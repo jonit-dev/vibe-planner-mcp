@@ -1,0 +1,45 @@
+### Create a new plan with all fields
+POST http://localhost:3000/api/plans
+Content-Type: application/json
+
+{
+  "name": "My Test Plan from REST Client",
+  "description": "This is a detailed description for the plan created via .http file.",
+  "status": "pending"
+}
+
+### Create a new plan with only the required name
+POST http://localhost:3000/api/plans
+Content-Type: application/json
+
+{
+  "name": "Minimal Test Plan"
+}
+
+### Create a plan with an invalid status (to test error handling or default)
+POST http://localhost:3000/api/plans
+Content-Type: application/json
+
+{
+  "name": "Plan with Invalid Status",
+  "description": "Testing what happens with a bad status value.",
+  "status": "super_custom_bad_status"
+}
+
+### Create a plan with a missing name (to test error handling)
+POST http://localhost:3000/api/plans
+Content-Type: application/json
+
+{
+  "description": "This plan is missing a name."
+}
+
+### Get all plans
+GET http://localhost:3000/api/plans
+
+### Get a specific plan by ID
+# Note: Replace {{planId}} with an actual ID from a created plan
+GET http://localhost:3000/api/plans/{{planId}}
+
+### Get a non-existent plan by ID
+GET http://localhost:3000/api/plans/non-existent-id-123 

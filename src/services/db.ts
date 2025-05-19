@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import 'reflect-metadata'; // Required for tsyringe
+import { container } from 'tsyringe';
+import { LoggerService } from './LoggerService'; // Import LoggerService
+
+const logger = container.resolve(LoggerService); // Get logger instance
 
 const dbPath =
   process.env.NODE_ENV === 'test'
@@ -14,6 +19,17 @@ if (process.env.NODE_ENV !== 'test') {
   }
 }
 
+logger.info(`[db.ts] TOP LEVEL: process.cwd() for main db: ${process.cwd()}`);
+logger.info(`[db.ts] TOP LEVEL: dbPath for main db: ${dbPath}`);
+
+logger.info(
+  `[db.ts] Main DB Initialization: process.cwd() is ${process.cwd()}`
+);
+logger.info(`[db.ts] Main DB Initialization: dbPath is ${dbPath}`);
+logger.info(
+  `[db.ts] About to initialize main dbInstance. process.cwd(): ${process.cwd()}, Resolved dbPath: ${dbPath}`
+);
+
 let dbInstance: Database.Database;
 
 try {
@@ -22,7 +38,7 @@ try {
   if (dbPath !== ':memory:') {
     dbInstance.pragma('journal_mode = WAL');
   }
-  console.log(`SQLite database connected at ${dbPath}`);
+  logger.info(`SQLite database connected at ${dbPath}`);
 
   // Initialize schema after connection ONLY IF NOT IN TEST ENV
   // Tests will handle their own schema initialization via resetDatabase in the spec file
@@ -41,18 +57,18 @@ try {
         // Pass dbInstance directly to avoid issues during module initialization
         _initializeSchemaInternal(sqlBlocks.join('\n---\n'), dbInstance);
       } else {
-        console.warn(
+        logger.warn(
           'No SQL DDL found in docs/database-schema.md within ```sql code blocks.'
         );
       }
     } else {
-      console.warn(
+      logger.warn(
         'docs/database-schema.md not found. Schema not initialized automatically.'
       );
     }
   }
 } catch (error) {
-  console.error('Failed to connect to SQLite database:', error);
+  logger.error('Failed to connect to SQLite database:', error as Error);
   // Depending on the application's needs, you might want to exit here
   // process.exit(1);
   throw error; // Re-throw to indicate failure, or handle more gracefully
@@ -71,10 +87,34 @@ function _initializeSchemaInternal(
 ): void {
   try {
     instance.exec(ddlStatements);
-    console.log('Database schema initialized successfully (internal call).');
+    logger.info('Database schema initialized successfully (internal call).');
+
+    try {
+      const checkStmt = instance.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='prds'"
+      );
+      const tableInfo = checkStmt.get();
+      if (tableInfo) {
+        logger.info(
+          'prds table confirmed to exist after schema initialization.'
+        );
+      } else {
+        logger.error(
+          'prds table DOES NOT EXIST after schema initialization, despite exec() succeeding.'
+        );
+      }
+    } catch (diagError) {
+      logger.error(
+        'Error querying prds table after initialization:',
+        diagError as Error
+      );
+    }
   } catch (error) {
-    console.error('Error initializing database schema (internal call):', error);
-    throw error; // Re-throw to allow calling code to handle
+    logger.error(
+      'Error initializing database schema (internal call):',
+      error as Error
+    );
+    throw error;
   }
 }
 
@@ -82,7 +122,7 @@ export function initializeSchema(ddlStatements: string): void {
   try {
     db.exec(ddlStatements);
   } catch (error) {
-    console.error('Error initializing database schema:', error);
+    logger.error('Error initializing database schema:', error as Error);
     throw error; // Re-throw to allow calling code to handle
   }
 }
@@ -91,6 +131,68 @@ export function initializeSchema(ddlStatements: string): void {
 export function closeDbConnection(): void {
   if (db && db.open) {
     db.close();
-    console.log('Database connection closed.');
+    logger.info('Database connection closed.');
   }
 }
+
+export const initializeDatabase = (forceCreate = false): Database.Database => {
+  logger.info(
+    `initializeDatabase function: Called. forceCreate: ${forceCreate}.`
+  );
+  logger.info(`initializeDatabase function: process.cwd() is ${process.cwd()}`);
+
+  const dbFilePath = path.resolve(process.cwd(), 'vibeplanner.db');
+
+  if (process.env.NODE_ENV !== 'test') {
+    const dbDir = path.dirname(dbFilePath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+  }
+
+  let dbInstance: Database.Database;
+
+  try {
+    dbInstance = new Database(dbFilePath);
+    // Enable WAL mode for better concurrency and performance, if not in-memory
+    if (dbFilePath !== ':memory:') {
+      dbInstance.pragma('journal_mode = WAL');
+    }
+    logger.info(`SQLite database connected at ${dbFilePath}`);
+
+    // Initialize schema after connection ONLY IF NOT IN TEST ENV
+    // Tests will handle their own schema initialization via resetDatabase in the spec file
+    if (process.env.NODE_ENV !== 'test') {
+      const schemaPath = path.join(process.cwd(), 'docs', 'database-schema.md');
+      if (fs.existsSync(schemaPath)) {
+        const ddlStatements = fs.readFileSync(schemaPath, 'utf-8');
+        // Basic parsing to extract SQL from Markdown code blocks
+        const sqlBlocks = [];
+        const regex = /```sql\n([\s\S]*?)\n```/g;
+        let match;
+        while ((match = regex.exec(ddlStatements)) !== null) {
+          sqlBlocks.push(match[1]);
+        }
+        if (sqlBlocks.length > 0) {
+          // Pass dbInstance directly to avoid issues during module initialization
+          _initializeSchemaInternal(sqlBlocks.join('\n---\n'), dbInstance);
+        } else {
+          logger.warn(
+            'No SQL DDL found in docs/database-schema.md within ```sql code blocks.'
+          );
+        }
+      } else {
+        logger.warn(
+          'docs/database-schema.md not found. Schema not initialized automatically.'
+        );
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to connect to SQLite database:', error as Error);
+    // Depending on the application's needs, you might want to exit here
+    // process.exit(1);
+    throw error; // Re-throw to indicate failure, or handle more gracefully
+  }
+
+  return dbInstance;
+};

@@ -1,6 +1,11 @@
 import crypto from 'crypto';
+import 'reflect-metadata'; // Ensure tsyringe can work if logger is injected here later
+import { container } from 'tsyringe';
 import { ZodType } from 'zod';
 import { db } from '../../services/db';
+import { LoggerService } from '../../services/LoggerService'; // Import LoggerService
+
+const logger = container.resolve(LoggerService); // Get logger instance
 
 export type EntityWithId = {
   id: string;
@@ -31,6 +36,18 @@ export abstract class BaseRepository<
   constructor(tableName: string, entitySchema: TEntityZodSchema) {
     this.tableName = tableName;
     this.entitySchema = entitySchema;
+    // Log when a repository instance is created and which DB it *should* be using
+    // Note: db.name might not be available if using an in-memory db opened as :memory: without a file path.
+    // However, for file-based DBs, it should show the path.
+    try {
+      logger.debug(
+        `Repository for table '${tableName}' initialized, using DB: ${db.name}`
+      );
+    } catch (e) {
+      logger.warn(
+        `Repository for table '${tableName}' initialized, but could not log db.name.`
+      );
+    }
   }
 
   protected rowToEntity(row: any): TEntityType {
@@ -73,6 +90,9 @@ export abstract class BaseRepository<
   }
 
   async create(data: CreateDto<TEntityType>): Promise<TEntityType> {
+    logger.debug(
+      `BaseRepository: Attempting to create record in table '${this.tableName}'. DB connected to: ${db.name}`
+    );
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -95,11 +115,17 @@ export abstract class BaseRepository<
     const placeholders = columns.map(() => '?').join(', ');
     const values = Object.values(validRecord);
 
-    const stmt = db.prepare(
-      `INSERT INTO ${this.tableName} (${columns
-        .map((col) => `"${col}"`)
-        .join(', ')}) VALUES (${placeholders})`
+    const sqlQuery = `INSERT INTO ${this.tableName} (${columns
+      .map((col) => `"${col}"`)
+      .join(', ')}) VALUES (${placeholders})`;
+
+    logger.debug(
+      `BaseRepository: Executing SQL for CREATE in '${
+        this.tableName
+      }': Query: ${sqlQuery}, Values: ${JSON.stringify(values)}`
     );
+
+    const stmt = db.prepare(sqlQuery);
     stmt.run(...values);
 
     // Fetch the created record to ensure it's parsed by Zod and dates are Date objects
@@ -108,6 +134,9 @@ export abstract class BaseRepository<
   }
 
   async findById(id: string): Promise<TEntityType | null> {
+    logger.debug(
+      `BaseRepository: Attempting to findById from table '${this.tableName}', ID: ${id}. DB connected to: ${db.name}`
+    );
     const stmt = db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`);
     const row = stmt.get(id);
     if (!row) {

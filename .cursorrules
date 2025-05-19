@@ -1,1 +1,2 @@
-- use yarn
+use yarn
+Get project structure info: tree -I "node_modules|dist|build|.git|.next|.turbo|coverage|.cache" -L 3

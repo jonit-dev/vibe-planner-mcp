@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApi } from '../hooks/useApi';
-import { apiClient } from '../lib/apiClient';
-import { PrdSummary } from '../types';
+import { usePlanStore } from '../store/planStore';
 
 interface PlansPageSidebarProps {
   onStatusChange: (status: { isLoading: boolean; hasError: boolean; hasPlans: boolean }) => void;
@@ -11,16 +9,14 @@ interface PlansPageSidebarProps {
 const PlansPageSidebar: React.FC<PlansPageSidebarProps> = ({ onStatusChange }) => {
   const navigate = useNavigate();
 
-  const {
-    data: planSummaries,
-    error: summariesError,
-    loading: summariesLoading,
-    request: fetchSummaries,
-  } = useApi<PrdSummary[]>(apiClient.getPlanSummaries);
+  const planSummaries = usePlanStore((state) => state.planSummaries);
+  const summariesLoading = usePlanStore((state) => state.summariesLoading);
+  const summariesError = usePlanStore((state) => state.summariesError);
+  const fetchPlanSummaries = usePlanStore((state) => state.fetchPlanSummaries);
 
   useEffect(() => {
-    fetchSummaries();
-  }, [fetchSummaries]);
+    fetchPlanSummaries();
+  }, [fetchPlanSummaries]);
 
   useEffect(() => {
     const isLoading = summariesLoading;
@@ -46,7 +42,7 @@ const PlansPageSidebar: React.FC<PlansPageSidebarProps> = ({ onStatusChange }) =
     return (
       <aside className="w-full md:w-1/3 lg:w-1/4 bg-base-100 p-4 rounded-lg shadow flex flex-col h-full items-center justify-center text-center">
         <p className="text-error-content opacity-80">Could not load plans.</p>
-        <p className="text-xs text-error-content opacity-60 mt-1">Try refreshing.</p>
+        <p className="text-xs text-error-content opacity-60 mt-1">Error: {summariesError.message}</p>
       </aside>
     );
   }
