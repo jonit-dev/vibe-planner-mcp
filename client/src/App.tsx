@@ -1,10 +1,10 @@
 import React from 'react';
 import { Outlet, Route, Routes } from 'react-router-dom';
-import TaskDetails from './components/kanban/TaskDetails';
-import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
-import HomePage from './pages/HomePage';
-import KanbanPage from './pages/KanbanPage';
+import { TaskDetails } from './components/kanban/TaskDetails';
+import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { HomePage } from './pages/HomePage';
+import { KanbanPage } from './pages/KanbanPage';
 
 const AppLayout: React.FC = () => {
   return (
@@ -21,7 +21,7 @@ const AppLayout: React.FC = () => {
   );
 };
 
-function App() {
+export function App() {
   return (
     <Routes>
       <Route path="/" element={<AppLayout />}>
@@ -36,4 +36,4 @@ function App() {
   );
 }
 
-export default App;
+// export default App;

@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import KanbanBoard from '../components/kanban/KanbanBoard'; // Assuming this will be created
+import { KanbanBoard } from '../components/kanban/KanbanBoard'; // Assuming this will be created
+import { usePolling } from '../hooks/usePolling'; // Import the usePolling hook
 import { usePlanStore } from '../store/planStore';
 import { useTasksStore } from '../store/tasksStore'; // Import the new tasks store
 
-const KanbanPage: React.FC = () => {
+export const KanbanPage: React.FC = () => {
   const { planId } = useParams<{ planId: string }>();
 
   // Individual selectors for each piece of state/action from Zustand store
@@ -22,7 +23,7 @@ const KanbanPage: React.FC = () => {
 
   useEffect(() => {
     if (planId) {
-      fetchPlanDetail(planId); // Fetches the plan, including its phases and tasks
+      // fetchPlanDetail(planId); // Initial fetch handled by usePolling
     } else {
       // If no planId, ensure both stores are cleared
       clearCurrentPlanDetail();
@@ -33,7 +34,18 @@ const KanbanPage: React.FC = () => {
       clearCurrentPlanDetail();
       clearTasksData(); // Also clear tasks data
     };
-  }, [planId, fetchPlanDetail, clearCurrentPlanDetail, clearTasksData]);
+  }, [planId, clearCurrentPlanDetail, clearTasksData]);
+
+  // Setup polling for plan details
+  usePolling(
+    (isInitialCall) => {
+      if (planId) {
+        fetchPlanDetail(planId, !isInitialCall);
+      }
+    },
+    5000, // Poll every 5 seconds
+    !!planId // Enable polling only if planId is present
+  );
 
   // Effect to load data into tasksStore once planDetail is available
   useEffect(() => {
@@ -57,7 +69,6 @@ const KanbanPage: React.FC = () => {
     return (
       <div className="p-4 flex-1 flex flex-col items-center justify-center">
         <span className="loading loading-lg loading-spinner text-primary"></span>
-        <p className="mt-3 text-info-content opacity-70">Loading plan details...</p>
       </div>
     );
   }
@@ -94,4 +105,4 @@ const KanbanPage: React.FC = () => {
   );
 };
 
-export default KanbanPage; 
+// export default KanbanPage; 

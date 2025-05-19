@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+export const POLLING_INTERVAL = 3000;
+
 // Updated FetchFunction type to accept an optional boolean indicating if it's the initial call
 type FetchFunction = (isInitialCall?: boolean) => void;
 
@@ -10,9 +12,9 @@ type FetchFunction = (isInitialCall?: boolean) => void;
  * @param intervalMilliseconds The interval in milliseconds to call the fetcher. Defaults to 3000ms.
  * @param enabled Whether the polling is currently active. Defaults to true.
  */
-const usePolling = (
+export const usePolling = (
   fetcher: FetchFunction,
-  intervalMilliseconds: number = 3000,
+  intervalMilliseconds: number = POLLING_INTERVAL,
   enabled: boolean = true
 ) => {
   // Using useCallback for fetcherRef.current to ensure stable reference for the effect, if fetcher itself is stable.
@@ -47,5 +49,3 @@ const usePolling = (
     // Fetcher is handled by ref and an effect to update the ref, so it's not directly in deps here.
   }, [intervalMilliseconds, enabled]);
 };
-
-export default usePolling;

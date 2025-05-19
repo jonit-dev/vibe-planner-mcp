@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTasksStore } from '../../store/tasksStore';
 import { TaskStatusType } from '../../types';
 
-const Sidebar: React.FC = () => {
+export const Sidebar: React.FC = () => {
   const { filterOptions, setFilter, clearFilters } = useTasksStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -96,5 +96,3 @@ const Sidebar: React.FC = () => {
     </aside>
   );
 };
-
-export default Sidebar;

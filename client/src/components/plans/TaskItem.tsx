@@ -5,7 +5,7 @@ interface TaskItemProps {
   task: Task;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
+export const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   return (
     <li className="p-3 mb-2 bg-base-content/10 rounded-md shadow-sm">
       <div className="flex justify-between items-center mb-1">
@@ -61,6 +61,4 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
       )}
     </li>
   );
-};
-
-export default TaskItem; 
+}; 

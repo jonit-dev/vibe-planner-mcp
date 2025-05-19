@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { apiClient } from '../../lib/apiClient';
 import { PlanDetail } from '../../types'; // Corrected import path
-import PhaseCard from './PhaseCard';
+import { PhaseCard } from './PhaseCard';
 
 interface PlanViewProps {
   planId: string;
 }
 
-const PlanView: React.FC<PlanViewProps> = ({ planId }) => {
+export const PlanView: React.FC<PlanViewProps> = ({ planId }) => {
   const {
     data: planDetail,
     error: detailError,
@@ -26,7 +26,6 @@ const PlanView: React.FC<PlanViewProps> = ({ planId }) => {
     return (
       <div className="flex flex-col items-center justify-center h-full p-4">
         <span className="loading loading-lg loading-spinner text-primary mb-4"></span>
-        <p className="text-lg text-base-content/80">Loading plan details...</p>
       </div>
     );
   }
@@ -74,4 +73,4 @@ const PlanView: React.FC<PlanViewProps> = ({ planId }) => {
   );
 };
 
-export default PlanView; 
+// export default PlanView; 

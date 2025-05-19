@@ -29,7 +29,7 @@ const getPhaseColor = (phaseName: string = 'Default'): string => {
   return colors[index] || 'bg-gray-500';
 };
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ task }) => {
   const { selectTask } = useTasksStore();
   const phases = useTasksStore((state) => state.phasesAsColumns); // Get all phases
 
@@ -78,5 +78,3 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task }) => {
     </div>
   );
 };
-
-export default KanbanCard;

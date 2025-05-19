@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 // import { filterTasks } from '../../lib/utils'; 
 import { useTasksStore } from '../../store/tasksStore'; // Updated to useTasksStore
 import { Task, TaskStatusType } from '../../types'; // Added Task and KanbanPhaseColumn imports, changed to TaskStatusType
-import KanbanColumn from './KanbanColumn';
+import { KanbanColumn } from './KanbanColumn'; // Updated to named import
 
 // Define the statuses for Kanban columns in a logical workflow order
 const KANBAN_STATUSES: { id: TaskStatusType; title: string }[] = [
@@ -12,7 +12,7 @@ const KANBAN_STATUSES: { id: TaskStatusType; title: string }[] = [
   { id: 'completed', title: 'Done' },     // Simplified to Done, was 'Completed'
 ];
 
-const KanbanBoard: React.FC = () => {
+export const KanbanBoard: React.FC = () => {
   // Get data from the new useTasksStore
   // const phasesAsColumns = useTasksStore((state) => state.phasesAsColumns); // No longer using phasesAsColumns
   const allTasksForPlan = useTasksStore((state) => state.tasks);
@@ -125,10 +125,8 @@ const KanbanBoard: React.FC = () => {
           {KANBAN_STATUSES.map(statusInfo => (
             <KanbanColumn
               key={statusInfo.id}
-              // Pass status information instead of phase
-              // KanbanColumn will need to be updated to accept these props
               columnTitle={statusInfo.title}
-              columnId={statusInfo.id}
+              _columnId={statusInfo.id} // Ensure _columnId is used if that's the prop name in KanbanColumn
               tasks={tasksByStatus[statusInfo.id] || []}
               onAddTask={() => handleAddNewTaskToStatus(statusInfo.id)}
             />
@@ -138,5 +136,3 @@ const KanbanBoard: React.FC = () => {
     </div>
   );
 };
-
-export default KanbanBoard;

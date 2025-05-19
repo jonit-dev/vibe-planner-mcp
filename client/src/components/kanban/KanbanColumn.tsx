@@ -1,18 +1,18 @@
 import { PlusCircle } from 'lucide-react';
 import React from 'react';
 import { Task, TaskStatusType } from '../../types';
-import KanbanCard from './KanbanCard';
+import { KanbanCard } from './KanbanCard';
 
 export interface KanbanColumnProps {
   columnTitle: string;
-  columnId: TaskStatusType;
+  _columnId: TaskStatusType;
   tasks: Task[];
   onAddTask: () => void;
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({
+export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   columnTitle,
-  columnId,
+  _columnId,
   tasks,
   onAddTask
 }) => {
@@ -45,5 +45,3 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     </div>
   );
 };
-
-export default KanbanColumn;

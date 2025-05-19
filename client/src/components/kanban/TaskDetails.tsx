@@ -7,7 +7,7 @@ import { formatDate, getStatusLabel } from '../../lib/utils';
 import { useTasksStore } from '../../store/tasksStore';
 import { TaskStatus, TaskStatusType } from '../../types';
 
-const TaskDetails: React.FC = () => {
+export const TaskDetails: React.FC = () => {
   const { selectedTask, selectTask, updateTask, deleteTask } = useTasksStore();
 
   if (!selectedTask) return null;
@@ -195,5 +195,3 @@ const TaskDetails: React.FC = () => {
     </div>
   );
 };
-
-export default TaskDetails;

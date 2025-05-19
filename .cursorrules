@@ -2,4 +2,4 @@ use yarn
 Get project structure info: tree -I "node_modules|dist|build|.git|.next|.turbo|coverage|.cache" -L 3
 prioritize SRP and SOLID principles
 favor composition over inheritance
-when doing changes, remember to run yarn tsc && yarn lint && yarn test
+ 

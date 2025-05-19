@@ -14,7 +14,7 @@ export default defineConfig({
         target: 'http://localhost:3000', // Updated to backend API server port 3000
         changeOrigin: true,
         // No rewrite needed as backend routes already include /api
-        // rewrite: (path) => path.replace(/^\/api/, ''), 
+        // rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

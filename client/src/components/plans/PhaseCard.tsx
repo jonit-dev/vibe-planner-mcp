@@ -1,12 +1,12 @@
 import React from 'react';
 import { Phase } from '../../types'; // Corrected import path
-import TaskItem from './TaskItem';
+import { TaskItem } from './TaskItem';
 
 interface PhaseCardProps {
   phase: Phase;
 }
 
-const PhaseCard: React.FC<PhaseCardProps> = ({ phase }) => {
+export const PhaseCard: React.FC<PhaseCardProps> = ({ phase }) => {
   return (
     <div className="p-4 mb-4 bg-base-100 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-2">
@@ -45,6 +45,4 @@ const PhaseCard: React.FC<PhaseCardProps> = ({ phase }) => {
       )}
     </div>
   );
-};
-
-export default PhaseCard; 
+}; 

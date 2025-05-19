@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTasksStore } from '../../store/tasksStore';
 
-const Header: React.FC = () => {
+export const Header: React.FC = () => {
   const { filterOptions, setFilter } = useTasksStore();
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -16,7 +16,7 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-4">
           <Link to="/" className="flex items-center cursor-pointer">
             <LayoutDashboard className="h-6 w-6 text-primary" />
-            <span className="ml-2 text-lg font-semibold font-mono">KanBoard</span>
+            <span className="ml-2 text-lg font-semibold font-mono">VibePlanner</span>
           </Link>
         </div>
 
@@ -47,5 +47,3 @@ const Header: React.FC = () => {
     </header>
   );
 };
-
-export default Header;

@@ -10,7 +10,10 @@ interface PlanState {
   summariesError: Error | null;
   detailError: Error | null;
   fetchPlanSummaries: (isInitialCall?: boolean) => Promise<void>;
-  fetchPlanDetail: (planId: string) => Promise<void>;
+  fetchPlanDetail: (
+    planId: string,
+    isBackgroundRefresh?: boolean
+  ) => Promise<void>;
   clearCurrentPlanDetail: () => void;
   getPlanById: (planId: string) => PrdSummary | undefined;
 }
@@ -38,7 +41,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     }
   },
 
-  fetchPlanDetail: async (planId: string) => {
+  fetchPlanDetail: async (planId: string, isBackgroundRefresh?: boolean) => {
     if (!planId) {
       set({
         currentPlanDetail: null,
@@ -47,7 +50,11 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       });
       return;
     }
-    set({ detailLoading: true, detailError: null });
+    if (!isBackgroundRefresh) {
+      set({ detailLoading: true, detailError: null });
+    } else {
+      set((state) => ({ ...state, detailError: null }));
+    }
     try {
       const detail = await apiClient.getPlanDetail(planId);
       set({ currentPlanDetail: detail, detailLoading: false });
