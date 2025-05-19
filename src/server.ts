@@ -11,8 +11,7 @@ import './services/tsyringe.config'; // Registers services and repositories
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { registerPlanningTool } from './tools/planningTool.js';
-import { VibePlannerTool } from './vibeplanner/index.js';
+import { VibePlannerTool } from './vibeplanner/services/VibePlannerTool.js';
 import { TaskStatusSchema } from './vibeplanner/types.js'; // Import Zod schemas and TS types
 
 async function main() {
@@ -24,25 +23,56 @@ async function main() {
     toolDescription: vibePlannerTool.toolDescription,
   });
 
-  registerPlanningTool(mcpServer);
-
   // VibePlannerTool Method Registrations
 
-  const startNewPlanSchema = z.object({
+  const createPlanSchema = z.object({
     name: z.string(),
     description: z.string(),
     sourceTool: z.string().optional(),
   });
   mcpServer.tool(
-    `${vibePlannerTool.toolName}/startNewPlan`,
-    startNewPlanSchema.shape,
+    `${vibePlannerTool.toolName}/createPlan`,
+    createPlanSchema.shape,
     {
       description:
-        'Starts a new development plan (PRD) and returns the first task if available.',
+        'Creates a new development plan (PRD) record and returns the first task if available.',
     },
-    async (params: z.infer<typeof startNewPlanSchema>, context: any) => {
-      const result = await vibePlannerTool.startNewPlan(context, params);
-      return { structuredContent: result };
+    async (params: z.infer<typeof createPlanSchema>, context: any) => {
+      return vibePlannerTool.createPlan(context, params);
+    }
+  );
+
+  const getPlanningScaffoldSchema = z.object({});
+  mcpServer.tool(
+    `${vibePlannerTool.toolName}/getPlanningScaffold`,
+    getPlanningScaffoldSchema.shape,
+    {
+      description:
+        'Retrieves the standard planning document template/scaffold.',
+    },
+    async (params: z.infer<typeof getPlanningScaffoldSchema>, context: any) => {
+      try {
+        const scaffoldContent = await vibePlannerTool.getPlanningScaffold(
+          context
+        );
+        return { content: [{ type: 'text', text: scaffoldContent }] };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Could not load planning document. ${errorMessage}`,
+            },
+          ],
+          error: {
+            code: -32000,
+            message: 'Failed to retrieve planning scaffold.',
+            data: errorMessage,
+          },
+        };
+      }
     }
   );
 

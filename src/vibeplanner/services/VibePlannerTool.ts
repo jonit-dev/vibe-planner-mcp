@@ -6,13 +6,18 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import 'reflect-metadata';
 import { inject, injectable } from 'tsyringe';
-import { PhaseControlService } from './services/PhaseControlService';
-import { PrdLifecycleService } from './services/PrdLifecycleService';
+import { Phase, Prd, Task, TaskStatus } from '../types';
+import { PhaseControlService } from './PhaseControlService';
+import { PrdLifecycleService } from './PrdLifecycleService';
 import {
   TaskOrchestrationService,
   UpdateTaskDetails,
-} from './services/TaskOrchestrationService';
-import { Phase, Prd, Task, TaskStatus } from './types';
+} from './TaskOrchestrationService';
+
+// Import for getPlanningScaffold
+import { readFile } from 'fs/promises';
+import * as path from 'path';
+import { MCP_DOCS_PATH } from '../../constants/pathConstants.js';
 
 // Define PlanOverview based on expected structure for getPlanStatus
 export interface PlanOverview extends Prd {
@@ -35,7 +40,7 @@ export class VibePlannerTool {
     private taskOrchestrationService: TaskOrchestrationService
   ) {}
 
-  async startNewPlan(
+  async createPlan(
     extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
     prdDetails: { name: string; description: string; sourceTool?: string }
   ): Promise<CallToolResult> {
@@ -61,6 +66,31 @@ export class VibePlannerTool {
     }
 
     return { content: [], structuredContent: { planId: prd.id, firstTask } };
+  }
+
+  async getPlanningScaffold(
+    extra: RequestHandlerExtra<ServerRequest, ServerNotification>
+  ): Promise<string> {
+    const filePath = path.join(MCP_DOCS_PATH, 'planning-documents.md');
+    console.error(
+      `[VibePlannerTool][getPlanningScaffold] Attempting to read: ${filePath}`
+    );
+    try {
+      const fileContent = await readFile(filePath, 'utf-8');
+      return fileContent;
+    } catch (error) {
+      console.error(
+        '[VibePlannerTool][getPlanningScaffold] Error reading planning document:',
+        error
+      );
+      // Re-throw or return an error structure if your tool framework expects it
+      // For direct string return, an error might be handled by the caller or MCP wrapper
+      throw new Error(
+        `Failed to read planning document: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   async getPlanStatus(

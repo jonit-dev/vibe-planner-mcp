@@ -53,7 +53,7 @@ describe('PlanCard', () => {
     const { container } = render(<PlanCard summary={summary} onSelectPlan={mockOnSelectPlan} />);
     expect(screen.getByText('0/0 tasks')).toBeInTheDocument();
     expect(screen.getByText('No tasks yet. Add tasks to see progress.')).toBeInTheDocument();
-    const progressBar = container.querySelector('.bg-primary.h-2.5.rounded-full');
+    const progressBar = container.querySelector('.bg-primary.h-2\\.5.rounded-full');
     expect(progressBar).toHaveStyle('width: 0%');
   });
 
@@ -62,7 +62,7 @@ describe('PlanCard', () => {
     const { container } = render(<PlanCard summary={summary} onSelectPlan={mockOnSelectPlan} />);
     expect(screen.getByText('5/10 tasks')).toBeInTheDocument();
     expect(screen.getByText('Keep going!')).toBeInTheDocument();
-    const progressBar = container.querySelector('.bg-primary.h-2.5.rounded-full');
+    const progressBar = container.querySelector('.bg-primary.h-2\\.5.rounded-full');
     expect(progressBar).toHaveStyle('width: 50%');
   });
 
@@ -71,7 +71,7 @@ describe('PlanCard', () => {
     const { container } = render(<PlanCard summary={summary} onSelectPlan={mockOnSelectPlan} />);
     expect(screen.getByText('10/10 tasks')).toBeInTheDocument();
     expect(screen.getByText('Plan complete!')).toBeInTheDocument();
-    const progressBar = container.querySelector('.bg-primary.h-2.5.rounded-full');
+    const progressBar = container.querySelector('.bg-primary.h-2\\.5.rounded-full');
     expect(progressBar).toHaveStyle('width: 100%');
   });
 
@@ -97,7 +97,7 @@ describe('PlanCard', () => {
     };
     const { container } = render(<PlanCard summary={summary} onSelectPlan={mockOnSelectPlan} />);
     expect(screen.getByText('0/0 tasks')).toBeInTheDocument();
-    const progressBar = container.querySelector('.bg-primary.h-2.5.rounded-full');
+    const progressBar = container.querySelector('.bg-primary.h-2\\.5.rounded-full');
     expect(progressBar).toHaveStyle('width: 0%');
   });
 

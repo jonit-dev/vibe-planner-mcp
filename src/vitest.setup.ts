@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import 'reflect-metadata';
 
 // Set NODE_ENV to 'test' for all test runs

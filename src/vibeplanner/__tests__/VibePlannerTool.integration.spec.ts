@@ -4,7 +4,6 @@ import path from 'path';
 import { container } from 'tsyringe';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, initializeSchema } from '../../services/db';
-import { VibePlannerTool } from '../index';
 import { PhaseRepository } from '../repositories/PhaseRepository';
 import { PrdRepository } from '../repositories/PrdRepository';
 import { TaskRepository } from '../repositories/TaskRepository';
@@ -13,6 +12,7 @@ import { PhaseControlService } from '../services/PhaseControlService';
 import { PrdLifecycleService } from '../services/PrdLifecycleService';
 import { RepositoryProvider } from '../services/RepositoryProvider';
 import { TaskOrchestrationService } from '../services/TaskOrchestrationService';
+import { VibePlannerTool } from '../services/VibePlannerTool';
 import { Prd, Task } from '../types';
 
 // Helper to load DDL from markdown
@@ -85,7 +85,7 @@ describe('VibePlannerTool Integration Tests', () => {
     localDataPersistenceService = container.resolve(DataPersistenceService);
   });
 
-  describe('startNewPlan', () => {
+  describe('createPlan', () => {
     it('should create a new PRD with the given name and description', async () => {
       const planName = 'My New Test Plan';
       const planDescription =
@@ -98,7 +98,7 @@ describe('VibePlannerTool Integration Tests', () => {
         sendRequest: async () => ({}),
       } as any; // Kept as any for brevity in this example, but could be typed more strictly
 
-      const result: CallToolResult = await vibePlannerTool.startNewPlan(
+      const result: CallToolResult = await vibePlannerTool.createPlan(
         mockExtra,
         {
           name: planName,
