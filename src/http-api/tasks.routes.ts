@@ -6,7 +6,7 @@ import {
   AddTaskDetails,
   TaskOrchestrationService,
 } from '../vibeplanner/services/TaskOrchestrationService';
-import { TaskStatus, TaskStatusSchema } from '../vibeplanner/types';
+import { TaskStatusSchema } from '../vibeplanner/types';
 
 export const tasksRouter = Router();
 
@@ -99,48 +99,93 @@ tasksRouter.post(
 // PATCH /api/tasks/:taskId
 tasksRouter.patch(
   '/:taskId',
-  asyncHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { taskId } = req.params;
-    const { status, notes } = req.body as {
-      status: TaskStatus;
-      notes?: string;
-    };
+    // Allow more fields for update, not just status and notes.
+    // The body can be a partial representation of a Task.
+    const updates = req.body;
+
+    logger.info(`PATCH /api/tasks/${taskId}: Received request to update task.`);
+    logger.debug(`PATCH /api/tasks/${taskId}: Update payload:`, updates);
 
     if (!taskId) {
+      logger.warn(`PATCH /api/tasks/${taskId}: taskId parameter is required.`);
       return res.status(400).json({ message: 'taskId is required' });
     }
 
-    if (!status) {
-      return res.status(400).json({ message: 'Task status is required' });
+    if (Object.keys(updates).length === 0) {
+      logger.warn(
+        `PATCH /api/tasks/${taskId}: Request body is empty, no updates provided.`
+      );
+      return res.status(400).json({ message: 'No update data provided' });
     }
 
-    if (!TaskStatusSchema.options.includes(status)) {
+    // Optional: Validate specific fields if they are present, e.g., status
+    if (updates.status && !TaskStatusSchema.options.includes(updates.status)) {
+      logger.warn(
+        `PATCH /api/tasks/${taskId}: Invalid task status provided: ${updates.status}`
+      );
       return res.status(400).json({
-        message: `Invalid task status: ${status}. Valid statuses are: ${TaskStatusSchema.options.join(
-          ', '
-        )}`,
+        message: `Invalid task status: ${
+          updates.status
+        }. Valid statuses are: ${TaskStatusSchema.options.join(', ')}`,
       });
     }
 
+    // Ensure non-updatable fields are not passed or are ignored by the service/repository layer.
+    // For example, id, creationDate, phaseId (moving phases might be a different operation).
+    // For now, we assume the service layer handles what can be updated.
+    delete updates.id; // Cannot change task ID
+    delete updates.creationDate; // Cannot change creation date
+    // delete updates.phaseId; // Moving a task to another phase should be a dedicated endpoint/logic if complex.
+    // If simply changing phaseId is allowed, this line isn't needed.
+    // For now, let's assume phaseId is NOT updatable via this generic patch.
+
     try {
-      const task = await dataPersistenceService.getTaskById(taskId);
-      if (!task) {
+      // First, check if the task exists
+      const existingTask = await dataPersistenceService.getTaskById(taskId);
+      if (!existingTask) {
+        logger.warn(
+          `PATCH /api/tasks/${taskId}: Task with ID ${taskId} not found.`
+        );
         return res.status(404).json({ message: 'Task not found' });
       }
 
-      const updatedTask = await dataPersistenceService.updateTask(taskId, {
-        status,
-        notes,
-      });
+      logger.debug(
+        `PATCH /api/tasks/${taskId}: Calling dataPersistenceService.updateTask with updates:`,
+        updates
+      );
+      const updatedTask = await dataPersistenceService.updateTask(
+        taskId,
+        updates
+      );
+
+      // updateTask might return null or throw if not found, though we checked above.
+      // It might also return the number of affected rows in some ORMs.
+      // Assuming it returns the updated task object or null if not found/failed.
       if (!updatedTask) {
+        // This case might be redundant if getTaskById already confirmed existence
+        // and updateTask would throw an error for other failures.
+        logger.warn(
+          `PATCH /api/tasks/${taskId}: Update failed or task not found (post-update check).`
+        );
         return res
           .status(404)
           .json({ message: 'Task not found or update failed' });
       }
+
+      logger.info(`PATCH /api/tasks/${taskId}: Successfully updated task.`);
       return res.status(200).json(updatedTask);
     } catch (error) {
-      console.error(`Error updating task ${taskId}:`, error);
-      return res.status(500).json({ message: 'Internal server error' });
+      logger.error(
+        `PATCH /api/tasks/${taskId}: Error updating task:`,
+        error as Error
+      );
+      const err =
+        error instanceof Error
+          ? error
+          : new Error('Unknown error during task update');
+      next(err); // Pass to the main error handler
     }
   })
 );

@@ -79,3 +79,27 @@ Content-Type: application/json
   "description": "Conduct user testing sessions with the created wireframes.",
   "order": 2
 }
+
+### Update a task by ID
+# Note: Replace {{taskIdToUpdate}} with an actual ID from a created task
+PATCH http://localhost:3000/api/tasks/{{taskIdToUpdate}}
+Content-Type: application/json
+
+{
+  "name": "Updated Task Name via PATCH",
+  "description": "This task description has been updated.",
+  "status": "in_progress",
+  "notes": "Some new notes added during update.",
+  "isValidated": true,
+  "validationCommand": "echo 'Validation successful'"
+}
+
+### Partially update a task (e.g., only status and notes)
+# Note: Replace {{taskIdToUpdate}} with an actual ID from a created task
+PATCH http://localhost:3000/api/tasks/{{taskIdToUpdate}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "notes": "Task is now complete and reviewed."
+}

@@ -1,14 +1,14 @@
 import {
-  Calendar, Check, Trash2,
-  X
+  ArrowRight, Calendar, CheckCircle, ChevronDown,
+  FileText, Hash, Info, Layers, Trash2, X, XCircle
 } from 'lucide-react';
 import React from 'react';
-import { formatDate, getStatusColor, getStatusLabel } from '../../lib/utils';
+import { formatDate, getStatusLabel } from '../../lib/utils';
 import { useTasksStore } from '../../store/tasksStore';
 import { TaskStatus, TaskStatusType } from '../../types';
 
 const TaskDetails: React.FC = () => {
-  const { selectedTask, selectTask } = useTasksStore();
+  const { selectedTask, selectTask, updateTask, deleteTask } = useTasksStore();
 
   if (!selectedTask) return null;
 
@@ -16,119 +16,179 @@ const TaskDetails: React.FC = () => {
     selectTask(null);
   };
 
-  const handleStatusChange = (status: TaskStatusType) => {
-    if (selectedTask) {
-      console.log(`Placeholder: Update task ${selectedTask.id} to status ${status}`);
+  const handleStatusChange = async (newStatus: TaskStatusType) => {
+    if (selectedTask && selectedTask.status !== newStatus) {
+      try {
+        await updateTask(selectedTask.id, { status: newStatus });
+      } catch (error) {
+        console.error("Failed to update task status:", error);
+      }
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedTask && window.confirm('Are you sure you want to delete this task?')) {
-      console.log(`Placeholder: Delete task ${selectedTask.id}`);
-      selectTask(null);
+      try {
+        await deleteTask(selectedTask.id);
+        selectTask(null);
+      } catch (error) {
+        console.error("Failed to delete task:", error);
+      }
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in p-4">
-      <div className="bg-base-100 w-full max-w-lg rounded-lg shadow-xl animate-slide-up overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center p-4 border-b border-neutral flex-shrink-0">
-          <h2 className="font-semibold text-lg text-base-content truncate pr-4" title={selectedTask.name}>
-            {selectedTask.name}
-          </h2>
-          <button
-            className="btn btn-sm btn-ghost btn-circle flex-shrink-0"
-            onClick={handleClose}
-          >
-            <X size={20} />
-          </button>
+      <div className="bg-base-100 w-full max-w-2xl rounded-lg shadow-xl animate-slide-up overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Standard Header */}
+        <div className={`bg-base-200 p-4 relative border-b border-neutral`}>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-lg text-base-content truncate pr-8" title={selectedTask.name}>
+              {selectedTask.name}
+            </h2>
+            <button
+              className="btn btn-sm btn-circle btn-ghost text-base-content absolute right-3 top-3"
+              onClick={handleClose}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent">
-          <div className="space-y-5">
-            {selectedTask.description && (
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Description</h4>
-                <p className="text-sm text-base-content whitespace-pre-wrap">
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto flex-grow p-5 space-y-6 scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent">
+          {/* Description Section */}
+          {selectedTask.description && (
+            <div className="card bg-base-200 shadow-sm">
+              <div className="card-body p-4">
+                <h3 className="card-title text-sm flex items-center gap-2 mb-2">
+                  <FileText size={16} className="text-primary" />
+                  Description
+                </h3>
+                <p className="text-sm text-base-content whitespace-pre-wrap leading-relaxed">
                   {selectedTask.description}
                 </p>
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Status</h4>
-                <div className="dropdown dropdown-top w-full">
-                  <label
-                    tabIndex={0}
-                    className={`${getStatusColor(selectedTask.status)} py-1.5 px-3 rounded-md cursor-pointer inline-flex items-center justify-between text-sm w-full capitalize`}
-                  >
-                    {getStatusLabel(selectedTask.status)}
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 opacity-70"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                  </label>
-                  <ul tabIndex={0} className="dropdown-content z-[1] menu p-1 shadow bg-base-200 rounded-md w-full mt-1">
-                    {TaskStatus.map(statusValue => (
-                      <li key={statusValue}>
-                        <a
-                          onClick={() => handleStatusChange(statusValue)}
-                          className={`${selectedTask.status === statusValue ? 'bg-primary text-primary-content' : 'hover:bg-base-300'} capitalize text-sm p-2 rounded-md`}
-                        >
-                          {getStatusLabel(statusValue)}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+          {/* Status Selection Box - Reverted to Dropdown */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4">
+              <h3 className="card-title text-sm flex items-center gap-2 mb-3">
+                <Info size={16} className="text-primary" />
+                Status
+              </h3>
+              <div className="dropdown dropdown-top w-full">
+                <label
+                  tabIndex={0}
+                  className={`btn btn-sm btn-outline border-base-300 hover:border-primary-focus w-full justify-between capitalize font-normal`}
+                >
+                  {getStatusLabel(selectedTask.status)}
+                  <ChevronDown size={16} className="ml-1 opacity-70" />
+                </label>
+                <ul tabIndex={0} className="dropdown-content z-[1] menu p-1 shadow bg-base-300 rounded-md w-full mt-1">
+                  {TaskStatus.map(statusValue => (
+                    <li key={statusValue}>
+                      <a
+                        onClick={() => handleStatusChange(statusValue)}
+                        className={`${selectedTask.status === statusValue
+                          ? 'bg-primary text-primary-content'
+                          : 'hover:bg-base-100 focus:bg-base-100'} capitalize text-sm p-2 rounded-md flex items-center gap-2`}
+                      >
+                        {selectedTask.status === statusValue && <ArrowRight size={14} />}
+                        {getStatusLabel(statusValue)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Details and Metadata */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Timeline Card */}
+            <div className="card bg-base-200 shadow-sm">
+              <div className="card-body p-4">
+                <h3 className="card-title text-sm flex items-center gap-2 mb-2">
+                  <Calendar size={16} className="text-primary" />
+                  Timeline
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between border-l-2 border-info pl-3 py-1">
+                    <span className="opacity-80">Created</span>
+                    <span className="font-mono">{formatDate(selectedTask.creationDate)}</span>
+                  </div>
+                  {selectedTask.completionDate && (
+                    <div className="flex items-center justify-between border-l-2 border-success pl-3 py-1">
+                      <span className="opacity-80">Completed</span>
+                      <span className="font-mono">{formatDate(selectedTask.completionDate)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Created</h4>
-                <div className="flex items-center text-sm">
-                  <Calendar size={14} className="mr-2 opacity-70 flex-shrink-0" />
-                  <span>{formatDate(selectedTask.creationDate)}</span>
+            {/* Validation Status Card */}
+            <div className="card bg-base-200 shadow-sm">
+              <div className="card-body p-4">
+                <h3 className="card-title text-sm flex items-center gap-2 mb-2">
+                  {selectedTask.isValidated ? (
+                    <CheckCircle size={16} className="text-success" />
+                  ) : (
+                    <XCircle size={16} className="text-error" />
+                  )}
+                  Validation
+                </h3>
+                <div className={`flex items-center gap-2 font-medium p-2 rounded-md ${selectedTask.isValidated
+                  ? "bg-success bg-opacity-20 text-success"
+                  : "bg-error bg-opacity-20 text-error"
+                  }`}>
+                  {selectedTask.isValidated ? 'Validated' : 'Not Validated'}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {selectedTask.completionDate && (
+          {/* Technical Details Card */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4">
+              <h3 className="card-title text-sm flex items-center gap-2 mb-2">
+                <Layers size={16} className="text-primary" />
+                Technical Details
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Completed</h4>
-                  <div className="flex items-center text-sm">
-                    <Calendar size={14} className="mr-2 opacity-70 flex-shrink-0" />
-                    <span>{formatDate(selectedTask.completionDate)}</span>
+                  <label className="block text-xs font-semibold mb-1 opacity-70">Phase ID</label>
+                  <div className="flex items-center gap-1.5 bg-base-300 p-2 rounded-md">
+                    <Hash size={14} className="text-neutral opacity-60" />
+                    <code className="font-mono text-xs break-all">{selectedTask.phaseId}</code>
                   </div>
                 </div>
-              )}
-
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Phase ID</h4>
-                <p className="text-sm text-base-content break-all">{selectedTask.phaseId}</p>
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Order</h4>
-                <p className="text-sm text-base-content">{selectedTask.order}</p>
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-content uppercase tracking-wider mb-1.5">Validated</h4>
-                <p className="text-sm text-base-content">{selectedTask.isValidated ? 'Yes' : 'No'}</p>
+                <div>
+                  <label className="block text-xs font-semibold mb-1 opacity-70">Order</label>
+                  <div className="font-mono bg-base-300 p-2 rounded-md">{selectedTask.order}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-neutral p-4 flex justify-end space-x-2 flex-shrink-0 bg-base-200">
+        {/* Footer Actions */}
+        <div className="border-t border-neutral p-4 flex justify-between items-center flex-shrink-0 bg-base-200">
           <button
-            className="btn btn-sm btn-ghost"
+            className="btn btn-sm btn-outline btn-error gap-2"
             onClick={handleDelete}
           >
-            <Trash2 size={16} className="mr-1.5" />
-            Delete Task
+            <Trash2 size={14} />
+            Delete
           </button>
           <button
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-primary gap-2"
             onClick={handleClose}
           >
-            <Check size={16} className="mr-1.5" />
-            Done
+            Ok
           </button>
         </div>
       </div>

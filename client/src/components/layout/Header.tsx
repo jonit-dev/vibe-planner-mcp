@@ -1,5 +1,6 @@
 import { LayoutDashboard, Moon, Search, Settings } from 'lucide-react';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTasksStore } from '../../store/tasksStore';
 
 const Header: React.FC = () => {
@@ -13,10 +14,10 @@ const Header: React.FC = () => {
     <header className="bg-base-200 border-b border-neutral py-3 px-4">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center">
+          <Link to="/" className="flex items-center cursor-pointer">
             <LayoutDashboard className="h-6 w-6 text-primary" />
             <span className="ml-2 text-lg font-semibold font-mono">KanBoard</span>
-          </div>
+          </Link>
         </div>
 
         <div className="flex-1 mx-8">

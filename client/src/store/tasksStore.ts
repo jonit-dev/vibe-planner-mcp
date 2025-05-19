@@ -126,23 +126,42 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   updateTask: async (taskId, updates) => {
-    console.log('updateTask called with:', taskId, updates);
-    set({ isLoading: true });
+    console.log('updateTask store action called with:', taskId, updates);
+    set({ isLoading: true, error: null });
     try {
-      // const updatedTask = await apiClient.updateTask(taskId, updates);
-      // set((state) => ({
-      //   tasks: state.tasks.map((task) => (task.id === taskId ? { ...task, ...updatedTask } : task)),
-      //   selectedTask: state.selectedTask?.id === taskId ? { ...state.selectedTask, ...updatedTask } : state.selectedTask,
-      //   isLoading: false,
-      // }));
-      console.log('Simulating API call for updateTask');
-      set({
-        isLoading: false,
-        error: new Error('updateTask: API call to be implemented'),
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || `Failed to update task: ${response.statusText}`
+        );
+      }
+
+      const updatedTask = await response.json();
+
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId ? { ...task, ...updatedTask } : task
+        ),
+        selectedTask:
+          state.selectedTask?.id === taskId
+            ? { ...state.selectedTask, ...updatedTask }
+            : state.selectedTask,
+        isLoading: false,
+      }));
+      console.log('Task updated successfully in store:', updatedTask);
     } catch (error) {
+      console.error('Failed to update task in store:', error);
       set({ error: error as Error, isLoading: false });
-      console.error('Failed to update task:', error);
+      // Re-throw or handle as appropriate for UI display
+      throw error;
     }
   },
 
