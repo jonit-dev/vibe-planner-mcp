@@ -1,6 +1,7 @@
 import { Briefcase, Calendar, Zap } from 'lucide-react'; // Added Calendar, Clock, TagIcon
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePolling from '../hooks/usePolling'; // Import the new hook
 import { usePlanStore } from '../store/planStore';
 import { PrdSummary } from '../types'; // Import PrdSummary for typing
 
@@ -15,9 +16,8 @@ const HomePage: React.FC = () => {
   const summariesError = usePlanStore((state) => state.summariesError);
   const fetchPlanSummaries = usePlanStore((state) => state.fetchPlanSummaries);
 
-  useEffect(() => {
-    fetchPlanSummaries();
-  }, [fetchPlanSummaries]);
+  // Use the polling hook to fetch plan summaries every 3 seconds
+  usePolling(fetchPlanSummaries, 3000);
 
   const handleSelectPlan = (planId: string) => {
     navigate(`/plan/${planId}`);
@@ -27,7 +27,6 @@ const HomePage: React.FC = () => {
     return (
       <main className="flex-1 bg-base-100 p-6 rounded-lg shadow flex flex-col items-center justify-center text-center">
         <span className="loading loading-lg loading-spinner text-primary mb-4"></span>
-        <p className="text-lg text-info-content opacity-70">Loading plans...</p>
       </main>
     );
   }
