@@ -222,6 +222,18 @@ The AI agent will primarily use the following MCP tools, namespaced under `mcp_v
     - Used to fetch the current state of an existing plan when resuming (Use Case 2.1).
     - Used by the AI to identify pending tasks within the current active phase and to determine if all tasks in a phase are complete (Use Case 1.3 and 2.3).
     - Helps in identifying the next phase after human validation.
+- **`getAllAvailablePlans`**:
+  - **Description**: Retrieves a list of all available development plans, potentially with summary details for each.
+  - **When to use**: When the AI needs to present a list of existing plans to the user for selection, or for administrative overview purposes.
+- **`updatePlanDetails`**:
+  - **Description**: Modifies the core details of an existing plan, such as its name, description, or other mutable properties.
+  - **When to use**: When a user requests to change the metadata of a plan, outside of its status or phase/task structure.
+- **`updatePlanStatus`**:
+  - **Description**: Updates the overall status of a development plan (e.g., from 'pending' to 'in_progress', 'on_hold', or 'completed').
+  - **When to use**: To reflect changes in the lifecycle of the entire plan, such as starting work, pausing, or marking it as finished.
+- **`deletePlan`**:
+  - **Description**: Permanently removes a development plan from the system.
+  - **When to use**: When a plan is no longer needed, is obsolete, or was created in error. This action should typically require user confirmation due to its destructive nature.
 
 ### Task Management Tools:
 
