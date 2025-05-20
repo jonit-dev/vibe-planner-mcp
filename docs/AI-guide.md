@@ -95,9 +95,15 @@ graph TD
     UPDATE_IN_PROGRESS --> EXECUTE_TASK_ACTION[AI/Dev: Execute Task Action];
     EXECUTE_TASK_ACTION --> REQUEST_VALIDATION[AI: requestTaskValidation];
     REQUEST_VALIDATION -- validationCmd --> RUN_VALIDATION_CMD[AI/Dev: Run validationCommand];
-    RUN_VALIDATION_CMD --> UPDATE_TASK_RESULT[AI: updateTaskStatus 'validated'/'failed'];
-    UPDATE_TASK_RESULT -- Task Validated --> GET_PENDING_TASK_IN_PHASE;
-    UPDATE_TASK_RESULT -- Task Failed --> HANDLE_TASK_FAILURE{Handle Failure: Log, Alert};
+    REQUEST_VALIDATION -- No validationCmd / Manual --> MANUAL_VALIDATION_PROMPT[AI: Prompt User for Manual Task Validation];
+    RUN_VALIDATION_CMD --> CHECK_AUTO_VALIDATION{Validation Passed?};
+    CHECK_AUTO_VALIDATION -- Yes --> UPDATE_TASK_VALIDATED[AI: updateTaskStatus 'validated'];
+    CHECK_AUTO_VALIDATION -- No --> UPDATE_TASK_FAILED[AI: updateTaskStatus 'failed'];
+    MANUAL_VALIDATION_PROMPT --> USER_CONFIRMS_MANUAL_VALIDATION{User Manually Validates Task?};
+    USER_CONFIRMS_MANUAL_VALIDATION -- Yes --> UPDATE_TASK_VALIDATED;
+    USER_CONFIRMS_MANUAL_VALIDATION -- No --> UPDATE_TASK_FAILED;
+    UPDATE_TASK_VALIDATED --> GET_PENDING_TASK_IN_PHASE;
+    UPDATE_TASK_FAILED --> HANDLE_TASK_FAILURE{Handle Failure: Log, Alert, Re-evaluate};
     HANDLE_TASK_FAILURE --> GET_PENDING_TASK_IN_PHASE;
 
     GET_PENDING_TASK_IN_PHASE -- No More Pending Tasks in Current Phase --> CURRENT_PHASE_TASKS_DONE[All Tasks in Current Phase Processed];
@@ -121,11 +127,20 @@ Once the plan is successfully created and verified in VibePlannerTool:
         - Call `VibePlannerTool/updateTaskStatus` for `currentTask.id` to `in_progress`.
         - AI/Developer executes `currentTask`.
         - Call `VibePlannerTool/requestTaskValidation` for `currentTask.id`.
-        - If `validationCommand` exists (this field should describe _what to do to validate_, e.g., suggested test cases to add, specific test commands like `yarn test:unit --filter=MyNewComponent`, or manual verification steps):
-          - AI/Developer performs the validation steps or runs the command.
-        - Call `VibePlannerTool/updateTaskStatus` for `currentTask.id` with results (`validated`, `failed`, details).
-        - If `failed`, log details, alert user, and decide on re-attempt or marking as blocked. Loop back to identify next pending task in _this phase_.
-        - If `validated`, loop back to identify next pending task in _this phase_.
+        - **Perform Validation**:
+          - If `validationCommand` exists:
+            - AI/Developer performs the validation steps or runs the command.
+            - Call `VibePlannerTool/updateTaskStatus` for `currentTask.id` with results (`validated` or `failed`, and details).
+          - If no `validationCommand` is present, or if automated validation is not feasible:
+            - AI must **PAUSE** and inform the user: "Task '[currentTask.name]' requires manual validation. Please verify its completion and correctness."
+            - Await user confirmation that the task is validated. The user might update the task status directly or instruct the AI.
+            - Once confirmed, the AI calls `VibePlannerTool/updateTaskStatus` for `currentTask.id` to `validated`.
+        - **Post-Validation Action**:
+          - If `currentTask` is marked `validated` (either automatically or manually):
+            - Loop back to identify the next pending task in _this phase_.
+          - If `currentTask` is marked `failed`:
+            - Log details, alert the user. The AI and user decide on re-attempting, marking as blocked, or other corrective actions.
+            - After handling failure, loop back to identify the next pending task in _this phase_ (or await further instruction if the failure blocks progress).
       - If no more pending tasks are found for the _current active phase_ (i.e., all tasks in this phase are `validated`, `completed`, `failed`, `blocked`, or `cancelled`):
         - Proceed to "Human Phase Validation".
     - **Human Phase Validation**:
@@ -183,9 +198,15 @@ graph TD
     UPDATE_IN_PROGRESS --> EXECUTE_TASK_ACTION[AI/Dev: Execute Task Action];
     EXECUTE_TASK_ACTION --> REQUEST_VALIDATION[AI: requestTaskValidation];
     REQUEST_VALIDATION -- validationCmd --> RUN_VALIDATION_CMD[AI/Dev: Run validationCommand];
-    RUN_VALIDATION_CMD --> UPDATE_TASK_RESULT[AI: updateTaskStatus 'validated'/'failed'];
-    UPDATE_TASK_RESULT -- Task Validated --> GET_PENDING_TASK_IN_PHASE;
-    UPDATE_TASK_RESULT -- Task Failed --> HANDLE_TASK_FAILURE{Handle Failure: Log, Alert};
+    REQUEST_VALIDATION -- No validationCmd / Manual --> MANUAL_VALIDATION_PROMPT_RESUME[AI: Prompt User for Manual Task Validation];
+    RUN_VALIDATION_CMD --> CHECK_AUTO_VALIDATION_RESUME{Validation Passed?};
+    CHECK_AUTO_VALIDATION_RESUME -- Yes --> UPDATE_TASK_VALIDATED_RESUME[AI: updateTaskStatus 'validated'];
+    CHECK_AUTO_VALIDATION_RESUME -- No --> UPDATE_TASK_FAILED_RESUME[AI: updateTaskStatus 'failed'];
+    MANUAL_VALIDATION_PROMPT_RESUME --> USER_CONFIRMS_MANUAL_VALIDATION_RESUME{User Manually Validates Task?};
+    USER_CONFIRMS_MANUAL_VALIDATION_RESUME -- Yes --> UPDATE_TASK_VALIDATED_RESUME;
+    USER_CONFIRMS_MANUAL_VALIDATION_RESUME -- No --> UPDATE_TASK_FAILED_RESUME;
+    UPDATE_TASK_VALIDATED_RESUME --> GET_PENDING_TASK_IN_PHASE;
+    UPDATE_TASK_FAILED_RESUME --> HANDLE_TASK_FAILURE{Handle Failure: Log, Alert, Re-evaluate};
     HANDLE_TASK_FAILURE --> GET_PENDING_TASK_IN_PHASE;
 
     GET_PENDING_TASK_IN_PHASE -- No More Pending Tasks in Current Phase --> CURRENT_PHASE_TASKS_DONE[All Tasks in Current Phase Processed];

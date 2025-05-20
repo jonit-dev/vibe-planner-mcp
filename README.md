@@ -85,6 +85,28 @@ Want to jump straight into the action? Here's the fast track:
 }
 ```
 
+### Using MCP for Planning and Execution
+
+Leverage the power of MCP to streamline your project planning and task execution with Vibe Planner. Here's how you can interact with an AI assistant (like Cursor) using MCP:
+
+1.  **Creating a Product Requirements Document (PRD):**
+    To generate a new PRD, you can ask your AI assistant:
+
+    ```
+    Could you create a PRD using @planning-documents.mdc and output a new .md file, like my-new-plan.md?
+    ```
+
+    This utilizes the `planning-documents.mdc` rule (located in `.cursor/rules/planning-documents.mdc`) as a template and guide for structuring your PRD.
+
+2.  **Executing a PRD with Vibe Planner Tools:**
+    Once you have a PRD, you can instruct your AI assistant to execute it using Vibe Planner's integrated tools:
+    ```
+    Use vibe-planning tool to execute the plan my-new-plan.md. Follow @docs/AI-guide.md guidelines.
+    ```
+    This command will engage the Vibe Planner tools to process the tasks outlined in `my-new-plan.md`, adhering to the best practices and conventions detailed in `docs/AI-guide.md`.
+
+These examples demonstrate how MCP, combined with your local Vibe Planner setup and defined rules/guides, can significantly enhance your development workflow.
+
 ## Available Scripts 🛠️
 
 Power up your workflow with these handy scripts from the project root:
