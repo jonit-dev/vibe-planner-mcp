@@ -21,7 +21,7 @@ export abstract class MCPBaseTool<
   OutputType extends ZodTypeAny | undefined // Represents the Zod schema for the output *type*, not its .shape
 > {
   // Properties to be defined by concrete classes
-  abstract readonly toolName: string; // Full tool name, e.g., "VibePlannerTool/createPlan"
+  abstract readonly toolName: string; // Full tool name, e.g., "createPlan"
   abstract readonly description: string;
   abstract readonly inputSchemaShape: InputShape; // e.g., CreatePlanInputSchema.shape
   abstract readonly outputSchema?: OutputType; // e.g., CreatePlanOutputSchema (the Zod schema object itself)

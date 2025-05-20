@@ -14,7 +14,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { GetPlanningScaffoldMCPTool } from './mcp-tools/general/GetPlanningScaffoldMCPTool.js';
 import { CreatePhaseMCPTool } from './mcp-tools/plan/CreatePhaseMCPTool.js';
 import { CreatePlanMCPTool } from './mcp-tools/plan/CreatePlanMCPTool.js';
+import { DeletePlanMCPTool } from './mcp-tools/plan/DeletePlanMCPTool.js';
+import { GetAllAvailablePlansMCPTool } from './mcp-tools/plan/GetAllAvailablePlansMCPTool.js';
 import { GetPlanStatusMCPTool } from './mcp-tools/plan/GetPlanStatusMCPTool.js';
+import { UpdatePlanDetailsMCPTool } from './mcp-tools/plan/UpdatePlanDetailsMCPTool.js';
+import { UpdatePlanStatusMCPTool } from './mcp-tools/plan/UpdatePlanStatusMCPTool.js';
 import { CreateTaskMCPTool } from './mcp-tools/task/CreateTaskMCPTool.js';
 import { GetNextTaskMCPTool } from './mcp-tools/task/GetNextTaskMCPTool.js';
 import { RequestTaskValidationMCPTool } from './mcp-tools/task/RequestTaskValidationMCPTool.js';
@@ -34,6 +38,10 @@ async function main() {
   container.resolve(CreatePlanMCPTool).register(mcpServer);
   container.resolve(CreatePhaseMCPTool).register(mcpServer);
   container.resolve(GetPlanStatusMCPTool).register(mcpServer);
+  container.resolve(GetAllAvailablePlansMCPTool).register(mcpServer);
+  container.resolve(UpdatePlanDetailsMCPTool).register(mcpServer);
+  container.resolve(UpdatePlanStatusMCPTool).register(mcpServer);
+  container.resolve(DeletePlanMCPTool).register(mcpServer);
   container.resolve(GetPlanningScaffoldMCPTool).register(mcpServer);
   container.resolve(CreateTaskMCPTool).register(mcpServer);
   container.resolve(GetNextTaskMCPTool).register(mcpServer);

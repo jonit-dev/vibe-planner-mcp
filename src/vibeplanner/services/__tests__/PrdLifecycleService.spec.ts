@@ -1,33 +1,45 @@
 import crypto from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mock } from 'vitest-mock-extended';
-import { LoggerService } from '../../../services/LoggerService';
-import { PhaseStatus, PhaseStatusSchema, Prd, PrdSchema } from '../../types';
-import { DataPersistenceService } from '../DataPersistenceService';
+// import { mock } from 'vitest-mock-extended'; // No longer needed directly here
+// import { LoggerService } from '../../../services/LoggerService'; // Imported via mock helper
+import { createTestPrd } from '../../../__tests__/test-utils/fixtures/prdFixtures';
+import {
+  createMockDataPersistenceService,
+  createMockLoggerService,
+} from '../../../__tests__/test-utils/mocks/serviceMocks';
+import { PhaseStatus, Prd } from '../../types'; // PrdSchema, PhaseStatusSchema used by fixture
 import {
   InitializePrdDetails,
   PrdLifecycleService,
 } from '../PrdLifecycleService';
 
-// Mock DataPersistenceService
-const mockDataPersistenceService = mock<DataPersistenceService>();
+// Mock DataPersistenceService using the helper
+const mockDataPersistenceService = createMockDataPersistenceService();
 
-// Use a factory to provide the mocked service instance for tsyringe
+// Use a factory to provide the mocked service instance for tsyringe (if tsyringe is used for instantiation in tests)
+// This part might need adjustment based on actual tsyringe test setup or if direct instantiation is preferred.
 vi.mock('../DataPersistenceService', () => ({
   DataPersistenceService: vi.fn(() => mockDataPersistenceService),
 }));
 
 describe('PrdLifecycleService', () => {
   let prdLifecycleService: PrdLifecycleService;
-  let mockLoggerService: LoggerService;
+  let mockLoggerService = createMockLoggerService(); // Instantiated here
 
   beforeEach(() => {
     vi.clearAllMocks(); // Clear mocks before each test
-    mockLoggerService = mock<LoggerService>();
-    // Manually instantiate the service or use tsyringe if it's set up for tests
-    // For simplicity here, direct instantiation with mocked dependency:
+    // Re-create mocks for each test if they hold state or if preferred for isolation
+    mockLoggerService = createMockLoggerService();
+    // If DataPersistenceService mock needs to be reset per test and is stateful:
+    // Object.assign(mockDataPersistenceService, createMockDataPersistenceService()); // or vi.resetModules for full re-import if necessary
+    // For vitest-mock-extended, .mockClear() or .mockReset() might be used on individual mock functions if needed.
+    // If createMockDataPersistenceService() returns a new mock object each time, reassign:
+    // mockDataPersistenceService = createMockDataPersistenceService();
+    // The current setup reuses the mockDataPersistenceService object defined outside describe,
+    // so its method mocks persist unless cleared. vi.clearAllMocks() handles this for vi.fn().
+
     prdLifecycleService = new PrdLifecycleService(
-      mockDataPersistenceService,
+      mockDataPersistenceService, // This is the module-level mock, its functions are cleared by vi.clearAllMocks()
       mockLoggerService
     );
   });
@@ -38,18 +50,7 @@ describe('PrdLifecycleService', () => {
         name: 'Test PRD',
         description: 'Test Description',
       };
-      const expectedPrdId = crypto.randomUUID();
-      const now = new Date();
-      const mockCreatedPrd: Prd = PrdSchema.parse({
-        id: expectedPrdId,
-        name: prdDetails.name,
-        description: prdDetails.description,
-        status: PhaseStatusSchema.enum.pending, // default status
-        phases: [],
-        creationDate: now,
-        updatedAt: now,
-        completionDate: null,
-      });
+      const mockCreatedPrd = createTestPrd(prdDetails); // Use fixture
 
       mockDataPersistenceService.createPrd.mockResolvedValue(mockCreatedPrd);
 
@@ -62,7 +63,7 @@ describe('PrdLifecycleService', () => {
         })
       );
       expect(prd).toEqual(mockCreatedPrd);
-      expect(prd.id).toBe(expectedPrdId);
+      expect(prd.id).toBe(mockCreatedPrd.id);
     });
 
     it('should throw an error if DataPersistenceService.createPrd fails', async () => {
@@ -89,17 +90,7 @@ describe('PrdLifecycleService', () => {
   describe('getPrd', () => {
     it('should get a PRD by ID by calling DataPersistenceService.getPrdById', async () => {
       const prdId = crypto.randomUUID();
-      const now = new Date();
-      const mockPrd: Prd = PrdSchema.parse({
-        id: prdId,
-        name: 'Fetched PRD',
-        description: 'Fetched Description',
-        status: PhaseStatusSchema.enum.pending,
-        phases: [],
-        creationDate: now,
-        updatedAt: now,
-        completionDate: null,
-      });
+      const mockPrd = createTestPrd({ id: prdId, name: 'Fetched PRD' }); // Use fixture
 
       mockDataPersistenceService.getPrdById.mockResolvedValue(mockPrd);
 
@@ -122,28 +113,9 @@ describe('PrdLifecycleService', () => {
 
   describe('listPrds', () => {
     it('should list all PRDs by calling DataPersistenceService.getAllPrds', async () => {
-      const now = new Date();
       const mockPrds: Prd[] = [
-        PrdSchema.parse({
-          id: crypto.randomUUID(),
-          name: 'PRD 1',
-          description: 'Desc 1',
-          status: 'pending',
-          phases: [],
-          creationDate: now,
-          updatedAt: now,
-          completionDate: null,
-        }),
-        PrdSchema.parse({
-          id: crypto.randomUUID(),
-          name: 'PRD 2',
-          description: 'Desc 2',
-          status: 'completed',
-          phases: [],
-          creationDate: now,
-          updatedAt: now,
-          completionDate: null,
-        }),
+        createTestPrd({ name: 'PRD 1' }), // Use fixture
+        createTestPrd({ name: 'PRD 2', status: 'completed' as PhaseStatus }), // Use fixture
       ];
 
       mockDataPersistenceService.getAllPrds.mockResolvedValue(mockPrds);
@@ -160,17 +132,7 @@ describe('PrdLifecycleService', () => {
     it('should update PRD status by calling DataPersistenceService.updatePrd', async () => {
       const prdId = crypto.randomUUID();
       const newStatus: PhaseStatus = 'completed';
-      const now = new Date();
-      const updatedPrdMock: Prd = PrdSchema.parse({
-        id: prdId,
-        name: 'PRD To Update',
-        description: 'Desc',
-        status: newStatus,
-        phases: [],
-        creationDate: now,
-        updatedAt: now,
-        completionDate: null,
-      });
+      const updatedPrdMock = createTestPrd({ id: prdId, status: newStatus }); // Use fixture
 
       mockDataPersistenceService.updatePrd.mockResolvedValue(updatedPrdMock);
 
@@ -204,16 +166,7 @@ describe('PrdLifecycleService', () => {
         name: 'Updated Name',
         description: 'Updated Description',
       };
-      const now = new Date();
-      const updatedPrdMock: Prd = PrdSchema.parse({
-        id: prdId,
-        ...detailsToUpdate,
-        status: 'pending',
-        phases: [],
-        creationDate: now,
-        updatedAt: now,
-        completionDate: null,
-      });
+      const updatedPrdMock = createTestPrd({ id: prdId, ...detailsToUpdate }); // Use fixture
 
       mockDataPersistenceService.updatePrd.mockResolvedValue(updatedPrdMock);
 
@@ -248,6 +201,53 @@ describe('PrdLifecycleService', () => {
         detailsToUpdate
       );
       expect(prd).toBeNull();
+    });
+  });
+
+  describe('deletePrd', () => {
+    const planId = 'test-plan-id';
+
+    it('should call dataPersistenceService.deletePrd and return true on successful deletion', async () => {
+      mockDataPersistenceService.deletePrd.mockResolvedValue(true);
+
+      const result = await prdLifecycleService.deletePrd(planId);
+
+      expect(mockDataPersistenceService.deletePrd).toHaveBeenCalledWith(planId);
+      expect(result).toBe(true);
+      expect(mockLoggerService.info).toHaveBeenCalledWith(
+        `[PrdLifecycleService] Deleting PRD with ID: ${planId}`
+      );
+      expect(mockLoggerService.info).toHaveBeenCalledWith(
+        `[PrdLifecycleService] Successfully deleted PRD ID: ${planId}`
+      );
+    });
+
+    it('should call dataPersistenceService.deletePrd and return false if deletion fails (e.g., not found)', async () => {
+      mockDataPersistenceService.deletePrd.mockResolvedValue(false);
+
+      const result = await prdLifecycleService.deletePrd(planId);
+
+      expect(mockDataPersistenceService.deletePrd).toHaveBeenCalledWith(planId);
+      expect(result).toBe(false);
+      expect(mockLoggerService.warn).toHaveBeenCalledWith(
+        `[PrdLifecycleService] Failed to delete PRD ID: ${planId} (not found or error).`
+      );
+    });
+
+    it('should throw an error if dataPersistenceService.deletePrd throws an error', async () => {
+      const errorMessage = 'Database error';
+      mockDataPersistenceService.deletePrd.mockRejectedValue(
+        new Error(errorMessage)
+      );
+
+      await expect(prdLifecycleService.deletePrd(planId)).rejects.toThrow(
+        errorMessage
+      );
+      expect(mockDataPersistenceService.deletePrd).toHaveBeenCalledWith(planId);
+      expect(mockLoggerService.error).toHaveBeenCalledWith(
+        `[PrdLifecycleService] Error deleting PRD ID: ${planId}:`,
+        expect.any(Error)
+      );
     });
   });
 });

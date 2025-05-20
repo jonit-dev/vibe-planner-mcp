@@ -97,6 +97,34 @@ export class PrdLifecycleService {
     return this.dataPersistenceService.updatePrd(prdId, details);
   }
 
+  async deletePrd(prdId: string): Promise<boolean> {
+    this.logger.info(`[PrdLifecycleService] Deleting PRD with ID: ${prdId}`);
+    try {
+      // Future: Add logic here to delete associated phases and tasks if needed (cascading delete)
+      // For now, it relies on DataPersistenceService.deletePrd which might or might not cascade.
+      // Based on DataPersistenceService.deletePrd, it only deletes the PRD itself.
+      // We might need to explicitly delete phases and tasks here, or ensure DataPersistenceService handles it.
+      // For now, directly calling deletePrd.
+      const result = await this.dataPersistenceService.deletePrd(prdId);
+      if (result) {
+        this.logger.info(
+          `[PrdLifecycleService] Successfully deleted PRD ID: ${prdId}`
+        );
+      } else {
+        this.logger.warn(
+          `[PrdLifecycleService] Failed to delete PRD ID: ${prdId} (not found or error).`
+        );
+      }
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `[PrdLifecycleService] Error deleting PRD ID: ${prdId}:`,
+        error as Error
+      );
+      throw error;
+    }
+  }
+
   // Placeholder for more complex status derivation logic if needed in the future
   // async derivePrdStatus(prdId: string): Promise<PhaseStatus | null> {
   //   const prd = await this.getPrd(prdId);

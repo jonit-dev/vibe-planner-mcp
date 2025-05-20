@@ -25,17 +25,17 @@ This use case covers the scenario where a new feature, component, or project req
 
 Once the PRD `.md` is approved, the AI translates it into the `VibePlannerTool`. Two main strategies exist:
 
-**Strategy A: Comprehensive `startNewPlan`**
+**Strategy A: Comprehensive `createPlan`**
 
-- **Preparation**: The AI structures all information from the PRD (plan name, description, all phases with their details, and all tasks within those phases) into a format `VibePlannerTool/startNewPlan` can ingest.
-  - _Assumption_: `startNewPlan` can process a comprehensive data structure for the entire plan hierarchy.
-- **Execution**: Call `VibePlannerTool/startNewPlan` with the comprehensive structured data.
+- **Preparation**: The AI structures all information from the PRD (plan name, description, all phases with their details, and all tasks within those phases) into a format `VibePlannerTool/createPlan` can ingest.
+  - _Assumption_: `createPlan` can process a comprehensive data structure for the entire plan hierarchy.
+- **Execution**: Call `VibePlannerTool/createPlan` with the comprehensive structured data.
   - **Returns**: `{ planId, firstTask? }`.
 - **Verification**: Call `VibePlannerTool/getPlanStatus` with the `planId`. Compare the reported structure against the PRD. If mismatched, alert the user and consider Strategy B or PRD format adjustments.
 
 **Strategy B: Iterative Creation (if Strategy A fails or is not supported)**
 
-- **Initial Plan Shell**: Call `VibePlannerTool/startNewPlan` with basic plan details (name, description).
+- **Initial Plan Shell**: Call `VibePlannerTool/createPlan` with basic plan details (name, description).
   - **Returns**: `{ planId }`.
 - **Iterate Through PRD Phases**: For each phase in the PRD:
   - Call `VibePlannerTool/addPhaseToPlan` (using `planId` and phase details from PRD).
@@ -63,16 +63,16 @@ graph TD
     USER_REVIEW_PRD -- Iterate --> AI_GEN_PRD;
     USER_REVIEW_PRD -- Approve PRD --> CHOOSE_CREATE_STRATEGY{AI: Choose Plan Creation Strategy};
 
-    CHOOSE_CREATE_STRATEGY -- Strategy A: Comprehensive --> PREP_A[AI: Structure Full PRD for startNewPlan];
-    PREP_A --> CALL_STARTPLAN_A[AI: Call VibePlannerTool/startNewPlan with Full PRD];
-    CALL_STARTPLAN_A -- planId --> VERIFY_A[AI: Call getPlanStatus Strategy_A];
+    CHOOSE_CREATE_STRATEGY -- Strategy A: Comprehensive --> PREP_A[AI: Structure Full PRD for createPlan];
+    PREP_A --> CALL_CREATEPLAN_A[AI: Call VibePlannerTool/createPlan with Full PRD];
+    CALL_CREATEPLAN_A -- planId --> VERIFY_A[AI: Call getPlanStatus Strategy_A];
     VERIFY_A --> CHECK_A{Full Structure Matches PRD Strategy_A?};
     CHECK_A -- Yes --> PLAN_SETUP_COMPLETE[Plan Setup Complete and Verified];
     CHECK_A -- No --> FAIL_A[Error! Alert User Strategy_A];
     FAIL_A --> CHOOSE_CREATE_STRATEGY;
 
-    CHOOSE_CREATE_STRATEGY -- Strategy B: Iterative --> CALL_STARTPLAN_B_SHELL[AI: Call startNewPlan - Basic Shell];
-    CALL_STARTPLAN_B_SHELL -- planId --> LOOP_PHASES_B{Loop PRD Phases Strategy_B};
+    CHOOSE_CREATE_STRATEGY -- Strategy B: Iterative --> CALL_CREATEPLAN_B_SHELL[AI: Call createPlan - Basic Shell];
+    CALL_CREATEPLAN_B_SHELL -- planId --> LOOP_PHASES_B{Loop PRD Phases Strategy_B};
     LOOP_PHASES_B -- For Each Phase --> CALL_ADD_PHASE[AI: Call VibePlannerTool/addPhaseToPlan];
     CALL_ADD_PHASE -- phaseId --> LOOP_TASKS_B{Loop PRD Tasks for Phase Strategy_B};
     LOOP_TASKS_B -- For Each Task --> EXPLORE_CODE_DETAIL_TASK[AI: Explore Codebase & Detail Task Desc.];
@@ -207,12 +207,12 @@ The AI agent will primarily use the following MCP tools, namespaced under `mcp_v
 
 ### Plan Management Tools:
 
-- **`createPlan`** (Replaces `VibePlannerTool/startNewPlan` in older documentation):
+- **`createPlan`**:
   - **Description**: Creates a new development plan (PRD) shell in the system. It initializes the plan with a name, description, and optional status.
   - **When to use**:
     - In Use Case 1.2 (Strategy A, if `createPlan` is enhanced to take full structure, or Strategy B for initial shell). Primarily for creating the initial PRD record.
     - The current implementation creates a basic plan and logs if a first task could be fetched, but doesn't ingest full phase/task structures directly.
-- **`createPhase`** (Replaces `VibePlannerTool/addPhaseToPlan`):
+- **`createPhase`**:
   - **Description**: Adds a new phase to an existing development plan. Requires `planId`, phase name, and optional description and order.
   - **When to use**: In Use Case 1.2 (Strategy B), iteratively, after `createPlan` has been called, to define the stages of the plan.
 - **`getPlanStatus`**:
@@ -225,7 +225,7 @@ The AI agent will primarily use the following MCP tools, namespaced under `mcp_v
 
 ### Task Management Tools:
 
-- **`createTask`** (Replaces `VibePlannerTool/addTaskToPhase`):
+- **`createTask`**:
   - **Description**: Adds a new task to a specific phase within a plan. Requires `phaseId`, task name, and optional description, order, dependencies, and `validationCommand`.
     - The `description` should be highly detailed, informed by codebase exploration, outlining specific changes, files, and functions.
     - The `validationCommand` field should specify _what to do to validate_ the task. This can be a narrative description of manual validation steps, suggested test cases (e.g., "Write unit tests for X, Y, Z scenarios and ensure they pass"), or an actual command to run (e.g., `npm run test:specific-module`).
