@@ -163,6 +163,58 @@ The AI should be aware of the following `VibePlannerTool` MCP methods:
   Returns an empty object `{}` if task not found or no validation command.
 - **Usage:** Call this before attempting to validate a task. The AI will then use its terminal execution capability to run the command.
 
+### 6. `VibePlannerTool/addPhaseToPlan`
+
+- **Description:** Adds a new phase to an existing development plan. This is used when phases are defined iteratively after the initial plan creation or if `startNewPlan` only creates the plan shell.
+- **Parameters (Schema):**
+  ```json
+  {
+    "planId": "string", // ID of the plan to add the phase to
+    "name": "string", // Name of the new phase
+    "description": "string?", // Optional: Description for the phase
+    "sequenceOrder": "number?" // Optional: Order of this phase within the plan
+  }
+  ```
+- **Returns (Schema):**
+  ```json
+  {
+    "phaseId": "string", // ID of the newly created phase
+    "planId": "string",
+    "name": "string",
+    "description": "string | undefined",
+    "sequenceOrder": "number",
+    "status": "string" // e.g., 'pending'
+  }
+  ```
+- **Usage:** After a plan is created (e.g., via `startNewPlan`), use this method to define its constituent phases based on the PRD.
+
+### 7. `VibePlannerTool/addTaskToPhase`
+
+- **Description:** Adds a new task to a specific phase within a development plan. This allows for granular task creation.
+- **Parameters (Schema):**
+  ```json
+  {
+    "phaseId": "string", // ID of the phase to add the task to
+    "name": "string", // Name of the new task
+    "description": "string?", // Optional: Description for the task
+    "sequenceOrder": "number?", // Optional: Order of this task within the phase
+    "validationCommand": "string?" // Optional: Command to validate task completion
+  }
+  ```
+- **Returns (Schema):**
+  ```json
+  {
+    "taskId": "string", // ID of the newly created task
+    "phaseId": "string",
+    "name": "string",
+    "description": "string | undefined",
+    "sequenceOrder": "number",
+    "status": "string", // e.g., 'pending'
+    "validationCommand": "string | undefined"
+  }
+  ```
+- **Usage:** Once phases are defined (e.g., via `addPhaseToPlan`), use this method to populate each phase with its tasks as specified in the PRD.
+
 ## Interaction with `.cursorrules/planning-documents`
 
 - The `planning-documents` rule in `.cursorrules` defines the expected _content and structure_ of a PRD (e.g., overview, phases, tasks, technical details, testing strategy).
