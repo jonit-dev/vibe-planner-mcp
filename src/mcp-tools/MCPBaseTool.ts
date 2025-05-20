@@ -68,15 +68,21 @@ export abstract class MCPBaseTool<
             context
           );
 
-          // Format response according to SDK expectations
+          // Format response based on result type
           const response = {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(plainResult),
+                text:
+                  typeof plainResult === 'string'
+                    ? plainResult
+                    : JSON.stringify(plainResult),
               },
             ],
-            structuredContent: plainResult || {},
+            structuredContent:
+              typeof plainResult === 'string'
+                ? { text: plainResult }
+                : plainResult || {},
           };
 
           this.logger.debug(

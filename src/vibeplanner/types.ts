@@ -175,7 +175,13 @@ export const GetPlanningScaffoldInputSchema = z.object({});
 export type GetPlanningScaffoldInput = z.infer<
   typeof GetPlanningScaffoldInputSchema
 >;
-// Output is a simple text content, handled directly in server.ts
+
+export const GetPlanningScaffoldOutputSchema = z.object({
+  text: z.string(),
+});
+export type GetPlanningScaffoldOutput = z.infer<
+  typeof GetPlanningScaffoldOutputSchema
+>;
 
 // VibePlannerTool.getPlanStatus
 export const GetPlanStatusInputSchema = z.object({ planId: z.string() });
