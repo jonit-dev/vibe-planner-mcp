@@ -12,8 +12,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 // Import new tool classes from their new locations
 import { GetPlanningScaffoldMCPTool } from './mcp-tools/general/GetPlanningScaffoldMCPTool.js';
+import { CreatePhaseMCPTool } from './mcp-tools/plan/CreatePhaseMCPTool.js';
 import { CreatePlanMCPTool } from './mcp-tools/plan/CreatePlanMCPTool.js';
 import { GetPlanStatusMCPTool } from './mcp-tools/plan/GetPlanStatusMCPTool.js';
+import { CreateTaskMCPTool } from './mcp-tools/task/CreateTaskMCPTool.js';
 import { GetNextTaskMCPTool } from './mcp-tools/task/GetNextTaskMCPTool.js';
 import { RequestTaskValidationMCPTool } from './mcp-tools/task/RequestTaskValidationMCPTool.js';
 import { UpdateTaskStatusMCPTool } from './mcp-tools/task/UpdateTaskStatusMCPTool.js';
@@ -30,8 +32,10 @@ async function main() {
   // Register all tools first
   logger.debug('[server.ts] Registering tools...');
   container.resolve(CreatePlanMCPTool).register(mcpServer);
+  container.resolve(CreatePhaseMCPTool).register(mcpServer);
   container.resolve(GetPlanStatusMCPTool).register(mcpServer);
   container.resolve(GetPlanningScaffoldMCPTool).register(mcpServer);
+  container.resolve(CreateTaskMCPTool).register(mcpServer);
   container.resolve(GetNextTaskMCPTool).register(mcpServer);
   container.resolve(UpdateTaskStatusMCPTool).register(mcpServer);
   container.resolve(RequestTaskValidationMCPTool).register(mcpServer);
