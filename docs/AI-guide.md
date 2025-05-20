@@ -41,10 +41,17 @@ Once the PRD `.md` is approved, the AI translates it into the `VibePlannerTool`.
   - Call `VibePlannerTool/addPhaseToPlan` (using `planId` and phase details from PRD).
   - **Returns**: `{ phaseId, ... }`.
   - **Iterate Through PRD Tasks (for current phase)**: For each task in the current PRD phase:
-    - Call `VibePlannerTool/addTaskToPhase` (using `phaseId` and task details from PRD).
+    - **Codebase Exploration & Task Detailing**: Before creating the task in the VibePlannerTool, the AI should thoroughly explore the relevant codebase. This exploration informs the creation of a very detailed task description, including specific files to be modified, functions to be implemented, or areas of code to be refactored. This detailed description is then used when calling `addTaskToPhase`.
+    - Call `VibePlannerTool/addTaskToPhase` (using `phaseId` and the detailed task information from PRD and codebase exploration).
 - **Overall Verification**: After all iterative additions, call `VibePlannerTool/getPlanStatus`. Compare against PRD. If mismatched, alert user and debug iterative steps.
 
 If Strategy A is successful and verified, the plan is ready. If Strategy B is used and verified, the plan is ready.
+
+**Post-Plan Creation User Confirmation**: Regardless of the strategy used, once the plan is successfully created and verified in `VibePlannerTool` (i.e., after `PLAN_SETUP_COMPLETE` in the diagram), the AI must:
+
+1. Inform the user: "The plan '[Plan Name]' has been successfully created and verified in the VibePlannerTool."
+2. Ask for confirmation: "Would you like to proceed with starting the first phase of this plan?"
+3. **PAUSE**: The AI takes no further action on starting the plan execution until explicit user confirmation to proceed. If the user confirms, then the workflow proceeds to Section 1.3 (Phase-by-Phase Execution). If the user does not confirm, the plan remains in a ready state, awaiting further instruction.
 
 ### 1.3. Workflow Diagram for Starting a New PRD
 
@@ -68,7 +75,8 @@ graph TD
     CALL_STARTPLAN_B_SHELL -- planId --> LOOP_PHASES_B{Loop PRD Phases Strategy_B};
     LOOP_PHASES_B -- For Each Phase --> CALL_ADD_PHASE[AI: Call VibePlannerTool/addPhaseToPlan];
     CALL_ADD_PHASE -- phaseId --> LOOP_TASKS_B{Loop PRD Tasks for Phase Strategy_B};
-    LOOP_TASKS_B -- For Each Task --> CALL_ADD_TASK[AI: Call VibePlannerTool/addTaskToPhase];
+    LOOP_TASKS_B -- For Each Task --> EXPLORE_CODE_DETAIL_TASK[AI: Explore Codebase & Detail Task Desc.];
+    EXPLORE_CODE_DETAIL_TASK --> CALL_ADD_TASK[AI: Call VibePlannerTool/addTaskToPhase];
     CALL_ADD_TASK --> LOOP_TASKS_B;
     LOOP_TASKS_B -- End Tasks for Current Phase Strategy_B --> LOOP_PHASES_B;
     LOOP_PHASES_B -- End All Phases Strategy_B --> VERIFY_B[AI: Call getPlanStatus Strategy_B];
@@ -77,7 +85,8 @@ graph TD
     CHECK_B -- No --> FAIL_B[Error! Alert User Strategy_B];
     FAIL_B --> CHOOSE_CREATE_STRATEGY;
 
-    PLAN_SETUP_COMPLETE --> IDENTIFY_CURRENT_PHASE{AI: Identify First Phase to Execute};
+    PLAN_SETUP_COMPLETE --> CONFIRM_START_PLAN{AI: Inform User & Ask to Start First Phase};
+    CONFIRM_START_PLAN -- User Confirms Proceed --> IDENTIFY_CURRENT_PHASE{AI: Identify First Phase to Execute};
     IDENTIFY_CURRENT_PHASE --> EXEC_PHASE_LOOP{Loop Through Plan Phases};
 
     EXEC_PHASE_LOOP -- Start/Next Phase --> ANNOUNCE_PHASE_START[AI: Announce Phase Start];
@@ -112,7 +121,8 @@ Once the plan is successfully created and verified in VibePlannerTool:
         - Call `VibePlannerTool/updateTaskStatus` for `currentTask.id` to `in_progress`.
         - AI/Developer executes `currentTask`.
         - Call `VibePlannerTool/requestTaskValidation` for `currentTask.id`.
-        - If `validationCommand` exists, AI/Developer runs it.
+        - If `validationCommand` exists (this field should describe _what to do to validate_, e.g., suggested test cases to add, specific test commands like `yarn test:unit --filter=MyNewComponent`, or manual verification steps):
+          - AI/Developer performs the validation steps or runs the command.
         - Call `VibePlannerTool/updateTaskStatus` for `currentTask.id` with results (`validated`, `failed`, details).
         - If `failed`, log details, alert user, and decide on re-attempt or marking as blocked. Loop back to identify next pending task in _this phase_.
         - If `validated`, loop back to identify next pending task in _this phase_.
@@ -187,22 +197,50 @@ graph TD
 
 ## Key MCP Tools Involved
 
-The AI agent will primarily use the following `VibePlannerTool` MCP methods:
+The AI agent will primarily use the following MCP tools, namespaced under `mcp_vibe-planner`:
 
-- **`VibePlannerTool/startNewPlan`**:
-  - Used to initialize a new PRD/plan.
-  - Can be used to create just a plan shell (for iterative phase/task addition - Strategy B) or potentially to ingest a comprehensive structure of the plan, its phases, and tasks (Strategy A), if supported.
-- **`VibePlannerTool/addPhaseToPlan`**: Adds a new phase to an existing plan. Essential for Strategy B (iterative plan creation).
-- **`VibePlannerTool/addTaskToPhase`**: Adds a new task to a specific phase. Essential for Strategy B (iterative plan creation).
-- **`VibePlannerTool/getPlanStatus`**:
-  - Crucial for verifying the plan structure after creation (both Strategy A and B).
-  - Used to fetch the current state of an existing plan when resuming.
-  - Used by the AI to identify pending tasks within the current active phase and to determine if all tasks in a phase are complete.
-  - Helps in identifying the next phase after human validation.
-- **`VibePlannerTool/getNextTask`**:
-  - Note: The current guide's logic relies more on `getPlanStatus` for the AI to manage task sequence within a phase and inter-phase transitions. If `getNextTask` is enhanced to be phase-aware or to respect inter-phase validation pauses, its role here could be more direct. For now, it's listed, but `getPlanStatus` is the primary driver for task selection by the AI in the described flow.
-- **`VibePlannerTool/updateTaskStatus`**: Updates a task's current state (e.g., `in_progress`, `validated`, `failed`).
-- **`VibePlannerTool/requestTaskValidation`**: Gets the `validationCommand` for a task.
+### General Tools:
+
+- **`getPlanningScaffold`**:
+  - **Description**: Retrieves the standard planning document template/scaffold (typically `planning-documents.md`).
+  - **When to use**: At the very beginning of PRD generation (Use Case 1.1) to ensure the AI has the correct template to guide PRD creation.
+
+### Plan Management Tools:
+
+- **`createPlan`** (Replaces `VibePlannerTool/startNewPlan` in older documentation):
+  - **Description**: Creates a new development plan (PRD) shell in the system. It initializes the plan with a name, description, and optional status.
+  - **When to use**:
+    - In Use Case 1.2 (Strategy A, if `createPlan` is enhanced to take full structure, or Strategy B for initial shell). Primarily for creating the initial PRD record.
+    - The current implementation creates a basic plan and logs if a first task could be fetched, but doesn't ingest full phase/task structures directly.
+- **`createPhase`** (Replaces `VibePlannerTool/addPhaseToPlan`):
+  - **Description**: Adds a new phase to an existing development plan. Requires `planId`, phase name, and optional description and order.
+  - **When to use**: In Use Case 1.2 (Strategy B), iteratively, after `createPlan` has been called, to define the stages of the plan.
+- **`getPlanStatus`**:
+  - **Description**: Retrieves the current status and detailed overview of a specific plan, including all its phases and their associated tasks.
+  - **When to use**:
+    - Crucial for verifying the plan structure after creation using `createPlan` and `createPhase` (Use Case 1.2).
+    - Used to fetch the current state of an existing plan when resuming (Use Case 2.1).
+    - Used by the AI to identify pending tasks within the current active phase and to determine if all tasks in a phase are complete (Use Case 1.3 and 2.3).
+    - Helps in identifying the next phase after human validation.
+
+### Task Management Tools:
+
+- **`createTask`** (Replaces `VibePlannerTool/addTaskToPhase`):
+  - **Description**: Adds a new task to a specific phase within a plan. Requires `phaseId`, task name, and optional description, order, dependencies, and `validationCommand`.
+    - The `description` should be highly detailed, informed by codebase exploration, outlining specific changes, files, and functions.
+    - The `validationCommand` field should specify _what to do to validate_ the task. This can be a narrative description of manual validation steps, suggested test cases (e.g., "Write unit tests for X, Y, Z scenarios and ensure they pass"), or an actual command to run (e.g., `npm run test:specific-module`).
+  - **When to use**: In Use Case 1.2 (Strategy B), iteratively, after `createPhase` has been called, to define the actionable items within each phase. The AI must perform codebase exploration to enrich the task details before this call.
+- **`getNextTask`**:
+  - **Description**: Gets the next available (pending and dependencies met) task for a given development plan. Returns the task object or null if no task is ready.
+  - **When to use**:
+    - Can be used to fetch the very first task after a plan is created or when resuming a plan.
+    - Within the task loop (Use Case 1.3), this can help identify what to work on next, though the guide's current logic leans more on `getPlanStatus` for a comprehensive view of the current phase's tasks. This tool is useful if the AI needs to fetch one specific task that is ready to be worked on.
+- **`updateTaskStatus`**:
+  - **Description**: Updates a task's current state (e.g., `pending`, `in_progress`, `validated`, `failed`, `blocked`, `cancelled`) and can include details like validation output or notes.
+  - **When to use**: Throughout the task lifecycle (Use Case 1.3 and 2.3) – before starting a task (`in_progress`), after validation (`validated`/`failed`), or if a task is blocked.
+- **`requestTaskValidation`**:
+  - **Description**: Retrieves the `validationCommand` for a specific task, if one is defined.
+  - **When to use**: After a task's execution is complete (Use Case 1.3 and 2.3), to get the instructions or command needed to verify the task's outcome. The AI/Developer then interprets and acts on these instructions. If no command is defined, it will indicate that.
 
 Refer to `docs/ai-consumer-guide.md` for detailed schemas of these methods.
 
