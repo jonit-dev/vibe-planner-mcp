@@ -8,6 +8,8 @@ import {
   MockInstance,
   vi,
 } from 'vitest'; // Added afterEach
+import { mock } from 'vitest-mock-extended'; // Import mock
+import { LoggerService } from '../../../services/LoggerService'; // Added import
 import { PhaseRepository } from '../../repositories/PhaseRepository';
 import { PrdRepository } from '../../repositories/PrdRepository';
 import { TaskRepository } from '../../repositories/TaskRepository';
@@ -113,9 +115,11 @@ describe('DataPersistenceService - Task Management', () => {
   };
   let mockRepositoryProvider: RepositoryProvider;
   let getTaskDependenciesSpy: MockInstance<[taskId: string], Promise<string[]>>;
+  let mockLoggerService: LoggerService; // Added mock logger variable
 
   beforeEach(() => {
     vi.clearAllMocks(); // Clears all mocks, including hoisted ones like mockDbRun
+    mockLoggerService = mock<LoggerService>(); // Created mock LoggerService
 
     mockPrdRepository = {
       create: vi.fn(),
@@ -148,7 +152,10 @@ describe('DataPersistenceService - Task Management', () => {
       taskRepository: mockTaskRepository as unknown as TaskRepository,
     } as RepositoryProvider;
 
-    service = new DataPersistenceService(mockRepositoryProvider);
+    service = new DataPersistenceService(
+      mockRepositoryProvider,
+      mockLoggerService
+    ); // Added mockLoggerService
   });
 
   // Task Management tests (original lines 557-794)

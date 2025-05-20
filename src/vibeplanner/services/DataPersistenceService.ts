@@ -1,5 +1,6 @@
 import { inject, singleton } from 'tsyringe';
 import { db } from '../../services/db';
+import { LoggerService } from '../../services/LoggerService';
 import { RepositoryProvider } from './RepositoryProvider'; // Import the new provider
 // Removed direct repository imports
 // CreateDto, UpdateDto might still be needed if DataPersistenceService constructs these for updates.
@@ -9,9 +10,15 @@ import { Phase, Prd, Task, TaskStatus } from '../types';
 
 @singleton()
 export class DataPersistenceService {
+  private logger: LoggerService;
+
   constructor(
-    @inject(RepositoryProvider) private repositories: RepositoryProvider
-  ) {}
+    @inject(RepositoryProvider) private repositories: RepositoryProvider,
+    @inject(LoggerService) loggerService: LoggerService
+  ) {
+    this.logger = loggerService;
+    this.logger.info('DataPersistenceService initialized');
+  }
 
   // PRD Methods
   async createPrd(
@@ -20,7 +27,24 @@ export class DataPersistenceService {
       'id' | 'creationDate' | 'updatedAt' | 'phases' | 'completionDate'
     >
   ): Promise<Prd> {
-    return this.repositories.prdRepository.create(data);
+    this.logger.info(
+      '[DataPersistenceService] Attempting to create PRD with data:',
+      data
+    );
+    try {
+      const newPrd = await this.repositories.prdRepository.create(data);
+      this.logger.info(
+        '[DataPersistenceService] Successfully created PRD:',
+        newPrd
+      );
+      return newPrd;
+    } catch (error) {
+      this.logger.error(
+        '[DataPersistenceService] Error creating PRD:',
+        error as Error
+      );
+      throw error;
+    }
   }
 
   async getPrdById(id: string): Promise<Prd | null> {

@@ -1,4 +1,5 @@
 import { inject, singleton } from 'tsyringe';
+import { LoggerService } from '../../services/LoggerService';
 import { PhaseStatus, PhaseStatusSchema, Prd } from '../types';
 import { DataPersistenceService } from './DataPersistenceService';
 
@@ -6,26 +7,71 @@ export interface InitializePrdDetails {
   name: string;
   description?: string | null; // Optional and nullable
   sourceTool?: string; // Plan mentioned this, but it's not in PrdSchema yet. Adding for future.
+  status?: PhaseStatus; // Added optional status
 }
 
 @singleton()
 export class PrdLifecycleService {
+  private logger: LoggerService;
+
   constructor(
     @inject(DataPersistenceService)
-    private dataPersistenceService: DataPersistenceService
-  ) {}
+    private dataPersistenceService: DataPersistenceService,
+    @inject(LoggerService) loggerService: LoggerService
+  ) {
+    this.logger = loggerService;
+    this.logger.info('PrdLifecycleService initialized');
+  }
 
   async initializePrd(details: InitializePrdDetails): Promise<Prd> {
-    // The PrdSchema now includes a status, which defaults to 'pending'.
-    // DataPersistenceService.createPrd handles id, creationDate, updatedAt, phases, completionDate.
+    this.logger.info(
+      '[PrdLifecycleService] Initializing PRD with details:',
+      details
+    );
+
+    let prdStatus: PhaseStatus = PhaseStatusSchema.enum.pending;
+    if (details.status) {
+      const parsedStatus = PhaseStatusSchema.safeParse(details.status);
+      if (parsedStatus.success) {
+        prdStatus = parsedStatus.data;
+        this.logger.debug(
+          `[PrdLifecycleService] Using provided status: ${prdStatus}`
+        );
+      } else {
+        this.logger.warn(
+          `[PrdLifecycleService] Invalid status '${details.status}' provided. Defaulting to 'pending'.`
+        );
+      }
+    } else {
+      this.logger.debug(
+        "[PrdLifecycleService] No status provided. Defaulting to 'pending'"
+      );
+    }
+
     const prdData = {
       name: details.name,
-      description: details.description ?? undefined, // Pass undefined if null/undefined for Zod .optional()
-      status: PhaseStatusSchema.enum.pending, // Set default status
-      // sourceTool is not in current PrdSchema. If added later, pass it here.
+      description: details.description ?? undefined,
+      status: prdStatus,
     };
-    // Type assertion to satisfy Omit requirement if PrdSchema has more fields than InitializePrdDetails
-    return this.dataPersistenceService.createPrd(prdData);
+
+    this.logger.info(
+      '[PrdLifecycleService] Calling DataPersistenceService.createPrd with data:',
+      prdData
+    );
+    try {
+      const newPrd = await this.dataPersistenceService.createPrd(prdData);
+      this.logger.info(
+        '[PrdLifecycleService] Successfully initialized PRD:',
+        newPrd
+      );
+      return newPrd;
+    } catch (error) {
+      this.logger.error(
+        '[PrdLifecycleService] Error initializing PRD:',
+        error as Error
+      );
+      throw error;
+    }
   }
 
   async getPrd(prdId: string): Promise<Prd | null> {

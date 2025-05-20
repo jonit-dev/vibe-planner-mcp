@@ -1,191 +1,53 @@
 import 'reflect-metadata'; // Must be the first import
+
 import { container } from 'tsyringe';
 import { LoggerService } from './services/LoggerService';
 
 // Log CWD at startup
-const earlyLogger = container.resolve(LoggerService);
-earlyLogger.info(`[server.ts] EARLY LOG: process.cwd() is ${process.cwd()}`);
-
-import './services/tsyringe.config'; // Registers services and repositories
+const logger = container.resolve(LoggerService);
+logger.debug(`[server.ts] EARLY LOG: process.cwd() is ${process.cwd()}`);
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
-import { VibePlannerTool } from './vibeplanner/services/VibePlannerTool.js';
-import { TaskStatusSchema } from './vibeplanner/types.js'; // Import Zod schemas and TS types
+
+// Import new tool classes from their new locations
+import { GetPlanningScaffoldMCPTool } from './mcp-tools/general/GetPlanningScaffoldMCPTool.js';
+import { CreatePlanMCPTool } from './mcp-tools/plan/CreatePlanMCPTool.js';
+import { GetPlanStatusMCPTool } from './mcp-tools/plan/GetPlanStatusMCPTool.js';
+import { GetNextTaskMCPTool } from './mcp-tools/task/GetNextTaskMCPTool.js';
+import { RequestTaskValidationMCPTool } from './mcp-tools/task/RequestTaskValidationMCPTool.js';
+import { UpdateTaskStatusMCPTool } from './mcp-tools/task/UpdateTaskStatusMCPTool.js';
 
 async function main() {
-  const vibePlannerTool = container.resolve(VibePlannerTool);
+  logger.debug('[server.ts] Starting MCP server...');
 
   const mcpServer = new McpServer({
     name: 'vibe-planner',
     version: '1.0.0',
-    toolDescription: vibePlannerTool.toolDescription,
+    toolDescription: 'A tool for managing development plans and tasks.',
   });
 
-  // VibePlannerTool Method Registrations
+  // Register all tools first
+  logger.debug('[server.ts] Registering tools...');
+  container.resolve(CreatePlanMCPTool).register(mcpServer);
+  container.resolve(GetPlanStatusMCPTool).register(mcpServer);
+  container.resolve(GetPlanningScaffoldMCPTool).register(mcpServer);
+  container.resolve(GetNextTaskMCPTool).register(mcpServer);
+  container.resolve(UpdateTaskStatusMCPTool).register(mcpServer);
+  container.resolve(RequestTaskValidationMCPTool).register(mcpServer);
+  logger.debug('[server.ts] All tools registered');
 
-  const createPlanSchema = z.object({
-    name: z.string(),
-    description: z.string(),
-    sourceTool: z.string().optional(),
-  });
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/createPlan`,
-    createPlanSchema.shape,
-    {
-      description:
-        'Creates a new development plan (PRD) record and returns the first task if available.',
-    },
-    async (params: z.infer<typeof createPlanSchema>, context: any) => {
-      return vibePlannerTool.createPlan(context, params);
-    }
-  );
-
-  const getPlanningScaffoldSchema = z.object({});
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/getPlanningScaffold`,
-    getPlanningScaffoldSchema.shape,
-    {
-      description:
-        'Retrieves the standard planning document template/scaffold.',
-    },
-    async (params: z.infer<typeof getPlanningScaffoldSchema>, context: any) => {
-      try {
-        const scaffoldContent = await vibePlannerTool.getPlanningScaffold(
-          context
-        );
-        return { content: [{ type: 'text', text: scaffoldContent }] };
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: Could not load planning document. ${errorMessage}`,
-            },
-          ],
-          error: {
-            code: -32000,
-            message: 'Failed to retrieve planning scaffold.',
-            data: errorMessage,
-          },
-        };
-      }
-    }
-  );
-
-  const getPlanStatusSchema = z.object({ planId: z.string() });
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/getPlanStatus`,
-    getPlanStatusSchema.shape,
-    {
-      description:
-        'Retrieves the current status and details of a development plan.',
-    },
-    async (params: z.infer<typeof getPlanStatusSchema>, context: any) => {
-      const result = await vibePlannerTool.getPlanStatus(
-        context,
-        params.planId
-      );
-      if (result === null) {
-        return { structuredContent: {} }; // Return empty object for structuredContent if result is null
-      }
-      // Sanitize description to be string | undefined
-      const sanitizedDescription =
-        result.description === null ? undefined : result.description;
-      const structuredOutput = { ...result, description: sanitizedDescription };
-      return { structuredContent: structuredOutput };
-    }
-  );
-
-  const getNextTaskSchema = z.object({ planId: z.string() });
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/getNextTask`,
-    getNextTaskSchema.shape,
-    {
-      description: 'Gets the next available task for a given development plan.',
-    },
-    async (params: z.infer<typeof getNextTaskSchema>, context: any) => {
-      const result = await vibePlannerTool.getNextTask(context, params.planId);
-      if (result === null) {
-        return { structuredContent: {} };
-      }
-      // Sanitize potentially nullable string fields in Task to be string | undefined
-      const sanitizedResult = {
-        ...result,
-        description:
-          result.description === null ? undefined : result.description,
-        validationCommand:
-          result.validationCommand === null
-            ? undefined
-            : result.validationCommand,
-        validationOutput:
-          result.validationOutput === null
-            ? undefined
-            : result.validationOutput,
-        notes: result.notes === null ? undefined : result.notes,
-      };
-      return { structuredContent: sanitizedResult };
-    }
-  );
-
-  const updateTaskStatusSchema = z.object({
-    taskId: z.string(),
-    status: TaskStatusSchema,
-    details: z.any().optional(),
-  });
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/updateTaskStatus`,
-    updateTaskStatusSchema.shape,
-    { description: 'Updates the status of a specific task.' },
-    async (params: z.infer<typeof updateTaskStatusSchema>, context: any) => {
-      await vibePlannerTool.updateTaskStatus(
-        context,
-        params.taskId,
-        params.status,
-        params.details
-      );
-      return { structuredContent: {} };
-    }
-  );
-
-  const requestTaskValidationSchema = z.object({ taskId: z.string() });
-  mcpServer.tool(
-    `${vibePlannerTool.toolName}/requestTaskValidation`,
-    requestTaskValidationSchema.shape,
-    { description: 'Requests the validation command for a specific task.' },
-    async (
-      params: z.infer<typeof requestTaskValidationSchema>,
-      context: any
-    ) => {
-      const result = await vibePlannerTool.requestTaskValidation(
-        context,
-        params.taskId
-      );
-      if (result === null) {
-        return { structuredContent: {} };
-      }
-      // result is { validationCommand: string | null }
-      const sanitizedValidationCommand =
-        result.validationCommand === null
-          ? undefined
-          : result.validationCommand;
-      return {
-        structuredContent: { validationCommand: sanitizedValidationCommand },
-      };
-    }
-  );
-
+  // Set up transport
+  logger.debug('[server.ts] Setting up StdioServerTransport...');
   const transport = new StdioServerTransport();
+
+  // Connect server
+  logger.debug('[server.ts] Connecting to transport...');
   await mcpServer.connect(transport);
-  console.error(
-    '[VIBE-PLANNER] Connected to StdioServerTransport. Listening...'
-  );
+  logger.debug('[server.ts] Server connected and ready');
 }
 
 main().catch((error) => {
-  console.error('[VIBE-PLANNER] CRITICAL ERROR in main():', error);
+  logger.error('[VIBE-PLANNER] CRITICAL ERROR in main():', error as Error);
   process.exit(1);
 });

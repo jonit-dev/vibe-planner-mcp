@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
+import { mock } from 'vitest-mock-extended';
+import { LoggerService } from '../../../services/LoggerService';
 import { PhaseRepository } from '../../repositories/PhaseRepository';
 import { PrdRepository } from '../../repositories/PrdRepository';
 import { TaskRepository } from '../../repositories/TaskRepository';
@@ -102,9 +104,11 @@ describe('DataPersistenceService - PRD Management', () => {
     removeDependency: MockInstance;
   };
   let mockRepositoryProvider: RepositoryProvider;
+  let mockLoggerService: LoggerService;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLoggerService = mock<LoggerService>();
 
     mockPrdRepository = {
       create: vi.fn(),
@@ -137,7 +141,10 @@ describe('DataPersistenceService - PRD Management', () => {
       taskRepository: mockTaskRepository as unknown as TaskRepository,
     } as RepositoryProvider;
 
-    service = new DataPersistenceService(mockRepositoryProvider);
+    service = new DataPersistenceService(
+      mockRepositoryProvider,
+      mockLoggerService
+    );
   });
 
   it('should create a PRD successfully', async () => {

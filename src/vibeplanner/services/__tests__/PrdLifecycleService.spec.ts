@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mock } from 'vitest-mock-extended';
+import { LoggerService } from '../../../services/LoggerService';
 import { PhaseStatus, PhaseStatusSchema, Prd, PrdSchema } from '../../types';
 import { DataPersistenceService } from '../DataPersistenceService';
 import {
@@ -18,12 +19,17 @@ vi.mock('../DataPersistenceService', () => ({
 
 describe('PrdLifecycleService', () => {
   let prdLifecycleService: PrdLifecycleService;
+  let mockLoggerService: LoggerService;
 
   beforeEach(() => {
     vi.clearAllMocks(); // Clear mocks before each test
+    mockLoggerService = mock<LoggerService>();
     // Manually instantiate the service or use tsyringe if it's set up for tests
     // For simplicity here, direct instantiation with mocked dependency:
-    prdLifecycleService = new PrdLifecycleService(mockDataPersistenceService);
+    prdLifecycleService = new PrdLifecycleService(
+      mockDataPersistenceService,
+      mockLoggerService
+    );
   });
 
   describe('initializePrd', () => {

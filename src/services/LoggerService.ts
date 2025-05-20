@@ -7,13 +7,14 @@ export class LoggerService {
 
   constructor() {
     const { combine, timestamp, printf, colorize, errors } = format;
+    const isDevelopment = process.env.NODE_ENV === 'development';
 
     const logFormat = printf(({ level, message, timestamp: ts, stack }) => {
       return `${ts} [${level}]: ${stack || message}`;
     });
 
     this.logger = winston.createLogger({
-      level: process.env.LOG_LEVEL || 'info', // Default to 'info', can be configured via env variable
+      level: isDevelopment ? process.env.LOG_LEVEL || 'info' : 'warn', // Only show info in development
       format: combine(
         colorize(),
         timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -40,7 +41,9 @@ export class LoggerService {
       ],
     });
 
-    this.logger.info('LoggerService initialized.');
+    if (isDevelopment) {
+      this.logger.info('LoggerService initialized in development mode.');
+    }
   }
 
   public debug(message: string, ...meta: any[]): void {

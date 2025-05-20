@@ -141,3 +141,81 @@ export const PlanOverviewSchema = z.object({
   updatedAt: z.date().describe('Date when the plan was last updated'),
 });
 export type PlanOverview = z.infer<typeof PlanOverviewSchema>;
+
+// New schema for detailed plan overview
+export const PlanOverviewSchemaDetailed = PrdSchema.extend({
+  phases: z.array(
+    PhaseSchema.extend({
+      tasks: z.array(TaskSchema),
+    })
+  ),
+});
+export type PlanOverviewDetailed = z.infer<typeof PlanOverviewSchemaDetailed>;
+
+// Schemas for MCP Tool Inputs & Outputs
+
+// VibePlannerTool.createPlan
+export const CreatePlanInputSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  sourceTool: z.string().optional(),
+  status: PhaseStatusSchema.optional(),
+});
+export type CreatePlanInput = z.infer<typeof CreatePlanInputSchema>;
+
+// Temporarily simplified for debugging "cb is not a function"
+export const CreatePlanOutputSchema = z.object({
+  planId: z.string(),
+  message: z.string().optional(), // Simplified field
+});
+export type CreatePlanOutput = z.infer<typeof CreatePlanOutputSchema>;
+
+// VibePlannerTool.getPlanningScaffold
+export const GetPlanningScaffoldInputSchema = z.object({});
+export type GetPlanningScaffoldInput = z.infer<
+  typeof GetPlanningScaffoldInputSchema
+>;
+// Output is a simple text content, handled directly in server.ts
+
+// VibePlannerTool.getPlanStatus
+export const GetPlanStatusInputSchema = z.object({ planId: z.string() });
+export type GetPlanStatusInput = z.infer<typeof GetPlanStatusInputSchema>;
+// Output schema for getPlanStatus is complex and derived from PrdSchema, handled in server.ts with sanitization.
+// If we were to define it strictly here, it would be PrdSchema or a modified version.
+// For now, we'll let server.ts handle the dynamic structuring and sanitization for its return.
+// UPDATING: We will now use PlanOverviewSchemaDetailed for the GetPlanStatus output
+export const GetPlanStatusOutputSchema = PlanOverviewSchemaDetailed;
+export type GetPlanStatusOutput = z.infer<typeof GetPlanStatusOutputSchema>;
+
+// VibePlannerTool.getNextTask
+export const GetNextTaskInputSchema = z.object({ planId: z.string() });
+export type GetNextTaskInput = z.infer<typeof GetNextTaskInputSchema>;
+// Output is TaskSchema (or nullable TaskSchema), handled in server.ts with sanitization.
+
+// VibePlannerTool.updateTaskStatus
+export const UpdateTaskStatusInputSchema = z.object({
+  taskId: z.string(),
+  status: TaskStatusSchema,
+  details: z.any().optional(),
+});
+export type UpdateTaskStatusInput = z.infer<typeof UpdateTaskStatusInputSchema>;
+
+// VibePlannerTool.requestTaskValidation
+export const RequestTaskValidationInputSchema = z.object({
+  taskId: z.string(),
+});
+export type RequestTaskValidationInput = z.infer<
+  typeof RequestTaskValidationInputSchema
+>;
+// Output is { validationCommand: string | undefined }, handled in server.ts.
+
+// ADDING a formal schema for RequestTaskValidation output
+export const RequestTaskValidationOutputSchema = z.object({
+  validationCommand: z
+    .string()
+    .optional()
+    .describe('The validation command, if available.'),
+});
+export type RequestTaskValidationOutput = z.infer<
+  typeof RequestTaskValidationOutputSchema
+>;

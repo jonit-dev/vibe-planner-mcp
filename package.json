@@ -9,11 +9,12 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "nodemon --watch src --ext ts,json --exec 'yarn build && yarn start'",
+    "start": "NODE_ENV=production node dist/server.js",
+    "dev": "NODE_ENV=development nodemon --watch src --ext ts,json --exec 'yarn build && yarn start'",
     "test": "vitest --run",
     "start:api": "ts-node src/http-api/index.ts",
-    "dev:api": "nodemon --watch src/http-api --watch src/vibeplanner --ext ts,json --exec 'ts-node src/http-api/index.ts'"
+    "dev:api": "nodemon --watch src/http-api --watch src/vibeplanner --watch .db_reset_sentinel --ext ts,json --exec 'ts-node src/http-api/index.ts'",
+    "db:reset": "node scripts/reset-db.js"
   },
   "keywords": [
     "mcp",
