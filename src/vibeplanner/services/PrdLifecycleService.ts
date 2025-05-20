@@ -50,7 +50,7 @@ export class PrdLifecycleService {
 
     const prdData = {
       name: details.name,
-      description: details.description ?? undefined,
+      description: details.description ?? '',
       status: prdStatus,
     };
 
